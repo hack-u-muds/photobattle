@@ -1,0 +1,28 @@
+<!DOCTYPE html>
+<html lang="ja">
+
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>画像カードゲーム</title>
+</head>
+
+
+
+<body>
+    <div class="container">
+        <h1>画像をカードに変換</h1>
+        
+        <div class="upload-section">
+            <input type="file" id="imageInput" accept="image/*" capture="environment">
+            <button onclick="document.getElementById('imageInput').click()">
+                📷 写真を選択
+            </button>
+        </div>
+        
+        <div id="preview"></div>
+    </div>
+<script src="script.js"></script>
+</body>
+</html>
