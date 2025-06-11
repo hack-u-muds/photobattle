@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Card Battle - Test</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .container { max-width: 800px; margin: 0 auto; }
+        button { margin: 10px; padding: 10px 20px; font-size: 16px; }
+        .log { 
+            background: #f5f5f5; 
+            padding: 10px; 
+            margin: 10px 0; 
+            border-radius: 5px;
+            height: 200px;
+            overflow-y: scroll;
+        }
+        input { margin: 5px; padding: 5px; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Photo Card Battle - 動作テスト</h1>
+        
+        <div>
+            <h3>接続状態</h3>
+            <p id="connection-status">未接続</p>
+        </div>
+        
+        <div>
+            <h3>ルーム操作</h3>
+            <button onclick="createRoom()">新しいルームを作成</button>
+            <br>
+            <input type="text" id="roomInput" placeholder="ルームID入力">
+            <button onclick="joinRoom()">ルームに参加</button>
+            <p id="room-status"></p>
+        </div>
+        
+        <div>
+            <h3>テスト送信</h3>
+            <input type="text" id="messageInput" placeholder="テストメッセージ">
+            <button onclick="sendTestMessage()">送信</button>
+        </div>
+        
+        <div>
+            <h3>ログ</h3>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+
+    <script>
+        const socket = io();
+        
+        function addLog(message) {
+            const log = document.getElementById('log');
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `<div>[${timestamp}] ${message}</div>`;
+            log.scrollTop = log.scrollHeight;
+        }
+        
+        // Socket.IO イベントハンドラー
+        socket.on('connect', function() {
+            document.getElementById('connection-status').textContent = '接続済み';
+            addLog('サーバーに接続しました');
+        });
+        
+        socket.on('disconnect', function() {
+            document.getElementById('connection-status').textContent = '切断';
+            addLog('サーバーから切断されました');
+        });
+        
+        socket.on('connected', function(data) {
+            addLog('サーバー: ' + data.message);
+        });
+        
+        socket.on('room_created', function(data) {
+            addLog('ルーム作成: ' + data.room_id);
+            document.getElementById('room-status').textContent = `ルーム ${data.room_id} を作成しました`;
+        });
+        
+        socket.on('room_joined', function(data) {
+            addLog(`ルーム ${data.room_id} に参加 (${data.players_count}/2人)`);
+            document.getElementById('room-status').textContent = `ルーム ${data.room_id} に参加中 (${data.players_count}/2人)`;
+        });
+        
+        socket.on('player_joined', function(data) {
+            addLog(`プレイヤーが参加しました (${data.players_count}/2人)`);
+        });
+        
+        socket.on('game_ready', function(data) {
+            addLog('ゲーム開始可能: ' + data.message);
+            document.getElementById('room-status').textContent = 'ゲーム開始可能！';
+        });
+        
+        socket.on('test_response', function(data) {
+            addLog('サーバーレスポンス: ' + data.message);
+        });
+        
+        socket.on('error', function(data) {
+            addLog('エラー: ' + data.message);
+        });
+        
+        // ボタン関数
+        function createRoom() {
+            socket.emit('create_room');
+        }
+        
+        function joinRoom() {
+            const roomId = document.getElementById('roomInput').value;
+            if (roomId) {
+                socket.emit('join_room_request', {room_id: roomId});
+            } else {
+                alert('ルームIDを入力してください');
+            }
+        }
+        
+        function sendTestMessage() {
+            const message = document.getElementById('messageInput').value;
+            if (message) {
+                socket.emit('test_message', {message: message});
+                document.getElementById('messageInput').value = '';
+            }
+        }
+    </script>
+</body>
+</html>
