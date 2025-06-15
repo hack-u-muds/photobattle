@@ -4,7 +4,7 @@ certifi==2025.4.26
 charset-normalizer==3.4.2
 click==8.2.1
 dnspython==2.7.0
-eventlet==0.33.3
+eventlet==0.40.0
 Flask==2.3.3
 Flask-SocketIO==5.3.6
 greenlet==3.2.3
@@ -23,9 +23,12 @@ python-socketio==5.9.0
 requests==2.32.4
 scikit-learn==1.7.0
 scipy==1.15.3
+setuptools==80.9.0
 simple-websocket==1.1.0
 six==1.17.0
 threadpoolctl==3.6.0
 urllib3==2.4.0
+uuid==1.30
 Werkzeug==3.0.1
+wheel==0.45.1
 wsproto==1.2.0
