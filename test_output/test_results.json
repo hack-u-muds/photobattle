@@ -1,0 +1,41 @@
+[
+  {
+    "image_path": "test_images/colorful.jpg",
+    "card_path": "test_output/card_1.png",
+    "power": 44,
+    "features": {
+      "color_diversity": 0.8752028322051981,
+      "complexity": 0.17500000000000002,
+      "contrast": 0.6211758185087375,
+      "saturation": 0.6162254901960784,
+      "resolution": 0.12
+    },
+    "name": "colorful"
+  },
+  {
+    "image_path": "test_images/simple.jpg",
+    "card_path": "test_output/card_2.png",
+    "power": 35,
+    "features": {
+      "color_diversity": 0.7883543992565041,
+      "complexity": 0.05058333333333333,
+      "contrast": 0.45285195499326514,
+      "saturation": 0.39899071895424837,
+      "resolution": 0.12
+    },
+    "name": "simple"
+  },
+  {
+    "image_path": "test_images/complex.jpg",
+    "card_path": "test_output/card_3.png",
+    "power": 71,
+    "features": {
+      "color_diversity": 1.0,
+      "complexity": 1.0,
+      "contrast": 0.535092412067273,
+      "saturation": 0.7021196078431373,
+      "resolution": 0.12
+    },
+    "name": "complex"
+  }
+]
