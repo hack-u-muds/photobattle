@@ -258,24 +258,53 @@ class CardGenerator:
         draw = ImageDraw.Draw(card)
         
         try:
-            # フォントを設定
-            font_large = ImageFont.truetype("Arial.ttf", 32)
-            font_medium = ImageFont.truetype("Arial.ttf", 20)
-            font_small = ImageFont.truetype("Arial.ttf", 16)
-            font_tiny = ImageFont.truetype("Arial.ttf", 12)
-        except:
+            # macOS用のフォント設定（日本語対応）
+            font_paths = [
+                "/System/Library/Fonts/ヒラギノ角ゴシック W3.ttc",
+                "/System/Library/Fonts/Hiragino Sans GB.ttc", 
+                "/Library/Fonts/Arial Unicode MS.ttf",
+                "/System/Library/Fonts/Arial.ttf",
+                "Arial.ttf"
+            ]
+            
+            font_large = None
+            font_medium = None
+            font_small = None
+            font_tiny = None
+            
+            # 利用可能なフォントを順番に試す
+            for font_path in font_paths:
+                try:
+                    if os.path.exists(font_path):
+                        font_large = ImageFont.truetype(font_path, 32)
+                        font_medium = ImageFont.truetype(font_path, 20)
+                        font_small = ImageFont.truetype(font_path, 16)
+                        font_tiny = ImageFont.truetype(font_path, 12)
+                        break
+                except:
+                    continue
+            
             # フォントが見つからない場合はデフォルトフォントを使用
+            if font_large is None:
+                font_large = ImageFont.load_default()
+                font_medium = ImageFont.load_default()
+                font_small = ImageFont.load_default()
+                font_tiny = ImageFont.load_default()
+                
+        except Exception as e:
+            print(f"フォント読み込みエラー: {e}")
+            # デフォルトフォントを使用
             font_large = ImageFont.load_default()
             font_medium = ImageFont.load_default()
             font_small = ImageFont.load_default()
             font_tiny = ImageFont.load_default()
         
-        # 属性名をヘッダーに表示
-        attribute_text = f"属性: {attribute.value}"
+        # 属性名をヘッダーに表示（英語で代用）
+        attribute_text = f"Type: {attribute.name}"  # 日本語の代わりに英語を使用
         draw.text((10, 8), attribute_text, fill=(255, 255, 255), font=font_small)
         
-        # 攻撃力を表示
-        attack_text = f"攻撃力: {attack_power}"
+        # 攻撃力を表示（英語）
+        attack_text = f"POWER: {attack_power}"
         attack_bbox = draw.textbbox((0, 0), attack_text, font=font_large)
         attack_width = attack_bbox[2] - attack_bbox[0]
         attack_x = (self.card_width - attack_width) // 2
@@ -298,22 +327,22 @@ class CardGenerator:
         type_y = 315
         draw.text((type_x, type_y), type_text, fill=self.text_color, font=font_small)
         
-        # 属性相性説明を表示
-        effectiveness_text = self._get_effectiveness_text(attribute)
+        # 属性相性説明を表示（英語）
+        effectiveness_text = self._get_effectiveness_text_en(attribute)
         draw.text((10, 350), effectiveness_text, fill=self.text_color, font=font_tiny)
         
         return card
     
-    def _get_effectiveness_text(self, attribute: CardAttribute) -> str:
+    def _get_effectiveness_text_en(self, attribute: CardAttribute) -> str:
         """
-        属性相性の説明テキストを生成
+        属性相性の説明テキストを生成（英語版）
         """
         if attribute == CardAttribute.FIRE:
-            return "火 > 土 > 水 > 火"
+            return "FIRE > EARTH > WATER > FIRE"
         elif attribute == CardAttribute.WATER:
-            return "水 > 火 > 土 > 水"
+            return "WATER > FIRE > EARTH > WATER"
         else:  # EARTH
-            return "土 > 水 > 火 > 土"
+            return "EARTH > WATER > FIRE > EARTH"
     
     def generate_card(self, image_path: str, output_path: str) -> Dict:
         """
