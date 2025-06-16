@@ -1096,7 +1096,26 @@ def api_auto_repair(room_id):
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
+# app.py の最後の部分を以下に置き換えるだけ
+
 if __name__ == '__main__':
+    import socket
+    
+    # ローカルIPアドレスを取得する関数
+    def get_local_ip():
+        try:
+            # 一時的なUDP接続でローカルIPを取得
+            s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+            s.connect(("8.8.8.8", 80))  # Googleの DNS に接続（実際には送信しない）
+            local_ip = s.getsockname()[0]
+            s.close()
+            return local_ip
+        except Exception:
+            return "localhost"
+    
+    local_ip = get_local_ip()
+    port = 5000
+    
     print("🎮 Photo Battle Full Stack Server v2.0.0")
     print("📋 Features:")
     print("   - HTML Pages: matching, card-generation, battle")
@@ -1105,10 +1124,14 @@ if __name__ == '__main__':
     print("   - Game Logic: Battle system with attribute effectiveness")
     print("🚀 Server starting...")
     print("🌐 Access URLs:")
-    print("   - Main: http://localhost:5000/")
-    print("   - Matching: http://localhost:5000/matching.html")
-    print("   - Card Gen: http://localhost:5000/card-generation.html")
-    print("   - Battle: http://localhost:5000/battle.html")
+    print(f"   - 自分のPC: http://localhost:{port}/")
+    print(f"   - 同じWi-Fi内: http://{local_ip}:{port}/")
+    print(f"   - スマホ: http://{local_ip}:{port}/")
+    print("")
+    print("📱 友達に共有するURL:")
+    print(f"   http://{local_ip}:{port}/")
+    print("")
+    print("💡 友達のデバイスが同じWi-Fiに接続されていることを確認してください！")
     
-    # 開発環境での実行
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+    # 重要: host='0.0.0.0' にすることで、外部からのアクセスを許可
+    socketio.run(app, debug=True, host='0.0.0.0', port=port)

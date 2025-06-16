@@ -581,14 +581,36 @@
         // Socket.IO接続
         // battle.html と card-generation.html の共通改善
 
-// Socket.IO接続設定を改善
-const socket = io('http://localhost:5000', {
-    // 接続オプションを追加
+// 3つのHTMLファイル（matching.html, card-generation.html, battle.html）の
+// Socket.IO接続部分を以下に置き換え
+
+// 自動的にサーバーURLを決定する関数
+function getServerUrl() {
+    // 現在のページのホストとポートを取得
+    const currentHost = window.location.hostname;
+    const currentPort = window.location.port;
+    
+    // もしポート番号が指定されていれば、同じホスト・ポートを使用
+    if (currentPort) {
+        return `http://${currentHost}:${currentPort}`;
+    }
+    
+    // ポート指定がない場合は現在のホストをそのまま使用
+    return `${window.location.protocol}//${currentHost}`;
+}
+
+// Socket.IO接続（自動設定）
+const serverUrl = getServerUrl();
+console.log('🔌 Connecting to server:', serverUrl);
+
+const socket = io(serverUrl, {
     autoConnect: true,
     reconnection: true,
     reconnectionDelay: 1000,
     reconnectionAttempts: 5,
-    timeout: 20000
+    timeout: 20000,
+    // 接続方式のフォールバック（Wi-Fi環境で安定）
+    transports: ['websocket', 'polling']
 });
 
 // 接続状態の管理
@@ -597,13 +619,18 @@ const maxRetries = 3;
 
 function setupSocketEvents() {
     socket.on('connect', () => {
-        console.log('=== Socket Connected ===');
-        console.log('Socket ID:', socket.id);
+        console.log('✅ Socket Connected');
+        console.log('🆔 Socket ID:', socket.id);
+        console.log('🌐 Server URL:', serverUrl);
         connectionRetryCount = 0; // リセット
         
+        // 接続成功の視覚的フィードバック
+        if (typeof showSuccess === 'function') {
+            showSuccess('サーバーに接続しました');
+        }
+        
         if (roomId) {
-            console.log('Rejoining room:', roomId);
-            // 少し遅延を入れてからルーム再参加
+            console.log('🏠 Rejoining room:', roomId);
             setTimeout(() => {
                 socket.emit('rejoin_room', { room_id: roomId });
             }, 500);
@@ -611,8 +638,12 @@ function setupSocketEvents() {
     });
 
     socket.on('disconnect', (reason) => {
-        console.log('=== Socket Disconnected ===');
-        console.log('Reason:', reason);
+        console.log('❌ Socket Disconnected');
+        console.log('📝 Reason:', reason);
+        
+        if (typeof showError === 'function') {
+            showError('サーバーから切断されました');
+        }
         
         if (reason === 'io server disconnect') {
             // サーバーから切断された場合、手動で再接続
@@ -621,43 +652,44 @@ function setupSocketEvents() {
     });
 
     socket.on('reconnect', (attemptNumber) => {
-        console.log('=== Socket Reconnected ===');
-        console.log('Attempt:', attemptNumber);
+        console.log('🔄 Socket Reconnected');
+        console.log('🎯 Attempt:', attemptNumber);
+        
+        if (typeof showSuccess === 'function') {
+            showSuccess('サーバーに再接続しました');
+        }
         
         if (roomId) {
             socket.emit('rejoin_room', { room_id: roomId });
         }
     });
 
-    socket.on('reconnect_error', (error) => {
-        console.error('=== Reconnection Error ===');
-        console.error('Error:', error);
+    socket.on('connect_error', (error) => {
+        console.error('🚫 Connection Error');
+        console.error('❗ Error:', error);
+        console.error('🌐 Attempted URL:', serverUrl);
         connectionRetryCount++;
         
         if (connectionRetryCount >= maxRetries) {
-            showError('接続に失敗しました。ページを再読み込みしてください。');
+            if (typeof showError === 'function') {
+                showError(`サーバーに接続できません。URLを確認してください: ${serverUrl}`);
+            }
         }
     });
 
-    // 既存のイベントハンドラー...
-    socket.on('battle_result', (data) => {
-        console.log('=== Received battle_result ===');
-        displayBattleResult(data);
-    });
-
+    // 既存のイベントハンドラーをここに追加...
     socket.on('error', (data) => {
-        console.error('=== Socket Error ===');
-        console.error('Error:', data.message);
-        
-        // 特定のエラーに対する自動修復を試行
-        if (data.message.includes('No cards found')) {
-            console.log('Attempting automatic card migration...');
-            attemptCardMigration();
-        } else {
+        console.error('🐛 Socket Error:', data.message);
+        if (typeof showError === 'function') {
             showError(data.message);
         }
     });
 }
+
+// ページ読み込み時に接続状態を表示
+window.addEventListener('load', () => {
+    console.log('📱 Page loaded, server URL:', serverUrl);
+});
 
 // カード情報の自動移行を試行
 function attemptCardMigration() {
