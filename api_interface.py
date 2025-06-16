@@ -40,7 +40,7 @@ def prepare_card_for_game_logic(card_info: Dict, session_id: str, card_index: in
     """
     game_card = card_info['game_data'].copy()
     game_card['id'] = card_index + 1
-    game_card['card_image_url'] = f'/get-card/{session_id}/card_{card_index + 1}.png'
+    game_card['card_image_url'] = f'/api/cards/{session_id}/card_{card_index + 1}.png'
     
     return {
         'id': game_card['id'],
@@ -154,7 +154,7 @@ def generate_cards():
     except Exception as e:
         return jsonify({'error': f'Internal server error: {str(e)}'}), 500
 
-@app.route('/get-card/<session_id>/<card_filename>', methods=['GET'])
+@app.route('/api/cards/<session_id>/<card_filename>', methods=['GET'])
 def get_card(session_id: str, card_filename: str):
     """
     生成されたカード画像を取得
