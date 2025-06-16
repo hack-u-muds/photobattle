@@ -72,6 +72,14 @@ def prepare_card_for_game_logic(card_info: dict, session_id: str, card_index: in
     game_card['id'] = card_index + 1
     game_card['card_image_url'] = f'/api/cards/{session_id}/card_{card_index + 1}.png'
     
+    # effectiveness_multipliersを安全な形式に変換
+    effectiveness_multipliers = game_card.get('effectiveness_multipliers', {})
+    safe_effectiveness = {}
+    for key, value in effectiveness_multipliers.items():
+        # Enumの場合は値を取得、そうでなければそのまま
+        safe_key = key.value if hasattr(key, 'value') else str(key)
+        safe_effectiveness[safe_key] = value
+    
     return {
         'id': game_card['id'],
         'name': card_info['name'],
@@ -81,9 +89,9 @@ def prepare_card_for_game_logic(card_info: dict, session_id: str, card_index: in
         'card_image_url': game_card['card_image_url'],
         'used': game_card['used'],
         'effectiveness_info': {
-            'strong_against': [attr for attr, mult in game_card['effectiveness_multipliers'].items() if mult > 1.0],
-            'weak_against': [attr for attr, mult in game_card['effectiveness_multipliers'].items() if mult < 1.0],
-            'normal_against': [attr for attr, mult in game_card['effectiveness_multipliers'].items() if mult == 1.0]
+            'strong_against': [attr for attr, mult in safe_effectiveness.items() if mult > 1.0],
+            'weak_against': [attr for attr, mult in safe_effectiveness.items() if mult < 1.0],
+            'normal_against': [attr for attr, mult in safe_effectiveness.items() if mult == 1.0]
         }
     }
 

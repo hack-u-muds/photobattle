@@ -41,16 +41,6 @@
             margin-bottom: 5px;
         }
 
-        .game-mode {
-            position: absolute;
-            top: 20px;
-            right: 20px;
-            background: rgba(255,255,255,0.2);
-            padding: 8px 16px;
-            border-radius: 20px;
-            font-size: 0.9em;
-        }
-
         .back-btn {
             position: absolute;
             top: 20px;
@@ -61,6 +51,16 @@
             padding: 10px 20px;
             border-radius: 8px;
             cursor: pointer;
+        }
+
+        .room-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
         }
 
         .score-board {
@@ -140,7 +140,7 @@
 
         /* カード選択フェーズ */
         .card-selection {
-            display: none;
+            display: block;
         }
 
         .your-cards {
@@ -149,7 +149,7 @@
 
         .cards-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
             gap: 20px;
             margin-top: 20px;
         }
@@ -162,9 +162,10 @@
             text-align: center;
             cursor: pointer;
             transition: all 0.3s ease;
+            position: relative;
         }
 
-        .card:hover {
+        .card:hover:not(.used) {
             transform: translateY(-5px);
             border-color: #4ecdc4;
             box-shadow: 0 15px 30px rgba(0,0,0,0.1);
@@ -173,17 +174,27 @@
         .card.selected {
             border-color: #ff6b6b;
             background: #fff5f5;
+            box-shadow: 0 10px 25px rgba(255, 107, 107, 0.2);
         }
 
         .card.used {
-            opacity: 0.5;
+            opacity: 0.4;
             cursor: not-allowed;
             filter: grayscale(100%);
         }
 
-        .card.used:hover {
-            transform: none;
-            border-color: #eee;
+        .card.used::after {
+            content: '使用済み';
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0,0,0,0.8);
+            color: white;
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-weight: bold;
+            z-index: 2;
         }
 
         .card-image {
@@ -245,7 +256,31 @@
             transform: none;
         }
 
-        /* バトルフェーズ */
+        /* 待機画面 */
+        .waiting-screen {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .waiting-animation {
+            font-size: 1.2em;
+            margin: 20px 0;
+        }
+
+        .waiting-dots::after {
+            content: '';
+            animation: waiting 2s infinite;
+        }
+
+        @keyframes waiting {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        /* バトルアニメーション */
         .battle-animation {
             display: none;
             text-align: center;
@@ -257,6 +292,7 @@
             justify-content: space-around;
             align-items: center;
             margin: 30px 0;
+            flex-wrap: wrap;
         }
 
         .battle-card {
@@ -266,6 +302,7 @@
             box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             text-align: center;
             max-width: 300px;
+            margin: 10px;
         }
 
         .battle-card.winner {
@@ -278,11 +315,17 @@
             background: #fff5f5;
         }
 
+        .battle-card .card-image {
+            width: 200px;
+            height: auto;
+        }
+
         .vs-animation {
             font-size: 3em;
             font-weight: bold;
             color: #ff6b6b;
             animation: pulse 1s infinite;
+            margin: 0 20px;
         }
 
         @keyframes pulse {
@@ -295,15 +338,12 @@
             border-radius: 10px;
             padding: 15px;
             margin: 20px 0;
-        }
-
-        .damage-step {
-            margin: 5px 0;
             font-family: monospace;
         }
 
         .effectiveness {
             font-weight: bold;
+            margin: 5px 0;
         }
 
         .effectiveness.advantage {
@@ -318,7 +358,7 @@
             color: #666;
         }
 
-        /* 結果フェーズ */
+        /* 結果表示 */
         .battle-result {
             display: none;
             text-align: center;
@@ -416,35 +456,21 @@
             box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
         }
 
-        /* 待機画面 */
-        .waiting-screen {
-            display: none;
-            text-align: center;
-            padding: 40px;
-        }
-
-        .waiting-animation {
-            font-size: 1.2em;
+        /* エラーメッセージ */
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
             margin: 20px 0;
-        }
-
-        .waiting-dots::after {
-            content: '';
-            animation: waiting 2s infinite;
-        }
-
-        @keyframes waiting {
-            0%, 20% { content: '.'; }
-            40% { content: '..'; }
-            60% { content: '...'; }
-            80%, 100% { content: ''; }
+            display: none;
+            font-weight: bold;
         }
 
         /* レスポンシブ */
         @media (max-width: 768px) {
             .battle-cards {
                 flex-direction: column;
-                gap: 20px;
             }
 
             .vs-animation {
@@ -455,6 +481,10 @@
             .cards-grid {
                 grid-template-columns: 1fr;
             }
+
+            .score-board {
+                padding: 15px 20px;
+            }
         }
     </style>
 </head>
@@ -462,7 +492,7 @@
     <div class="container">
         <div class="header">
             <button class="back-btn" onclick="goBack()">← 戻る</button>
-            <div class="game-mode" id="gameModeDisplay">練習モード</div>
+            <div class="room-info" id="roomInfo">ルーム: <span id="roomIdDisplay"></span></div>
             
             <h1>⚔️ Photo Battle</h1>
         </div>
@@ -476,7 +506,7 @@
             <div class="vs-divider">VS</div>
             
             <div class="player-score">
-                <div class="player-name" id="player2Name">CPU</div>
+                <div class="player-name" id="player2Name">相手</div>
                 <div class="score" id="player2Score">0</div>
             </div>
         </div>
@@ -490,13 +520,13 @@
             <!-- カード選択フェーズ -->
             <div id="cardSelection" class="card-selection">
                 <div class="your-cards">
-                    <h3>あなたのカードを選択してください</h3>
+                    <h3>バトルで使用するカードを選択してください</h3>
                     <div id="playerCards" class="cards-grid"></div>
                 </div>
                 
                 <div class="confirm-selection">
                     <button id="confirmBtn" class="confirm-btn" disabled>
-                        選択したカードで戦う
+                        このカードで戦う！
                     </button>
                 </div>
             </div>
@@ -513,16 +543,8 @@
             <div id="battleAnimation" class="battle-animation">
                 <h3>⚔️ バトル中 ⚔️</h3>
                 
-                <div class="battle-cards">
-                    <div id="myBattleCard" class="battle-card">
-                        <!-- カード情報がここに表示される -->
-                    </div>
-                    
-                    <div class="vs-animation">VS</div>
-                    
-                    <div id="opponentBattleCard" class="battle-card">
-                        <!-- 相手のカード情報がここに表示される -->
-                    </div>
+                <div class="battle-cards" id="battleCards">
+                    <!-- バトルカードがここに表示される -->
                 </div>
 
                 <div id="damageCalculation" class="damage-calculation">
@@ -533,4 +555,374 @@
             <!-- バトル結果 -->
             <div id="battleResult" class="battle-result">
                 <div id="roundWinner" class="round-winner"></div>
-                <button id="nextRoundBtn" class="next-round-btn">次のラウンドへ
+                <button id="nextRoundBtn" class="next-round-btn">次のラウンドへ</button>
+            </div>
+
+            <!-- ゲーム終了 -->
+            <div id="gameEnd" class="game-end">
+                <div id="finalResult" class="final-result"></div>
+                <div>
+                    <button id="playAgainBtn" class="play-again-btn">もう一度遊ぶ</button>
+                    <button id="homeBtn" class="home-btn">ホームに戻る</button>
+                </div>
+            </div>
+
+            <!-- エラーメッセージ -->
+            <div id="errorMessage" class="error-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // URL パラメータから設定を取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room');
+        const sessionId = urlParams.get('session');
+        
+        // Socket.IO接続
+        const socket = io('http://localhost:5000');
+        
+        // DOM要素
+        const roomIdDisplay = document.getElementById('roomIdDisplay');
+        const player1Score = document.getElementById('player1Score');
+        const player2Score = document.getElementById('player2Score');
+        const roundNumber = document.getElementById('roundNumber');
+        const phaseIndicator = document.getElementById('phaseIndicator');
+        const cardSelection = document.getElementById('cardSelection');
+        const playerCards = document.getElementById('playerCards');
+        const confirmBtn = document.getElementById('confirmBtn');
+        const waitingScreen = document.getElementById('waitingScreen');
+        const battleAnimation = document.getElementById('battleAnimation');
+        const battleCards = document.getElementById('battleCards');
+        const damageCalculation = document.getElementById('damageCalculation');
+        const battleResult = document.getElementById('battleResult');
+        const roundWinner = document.getElementById('roundWinner');
+        const nextRoundBtn = document.getElementById('nextRoundBtn');
+        const gameEnd = document.getElementById('gameEnd');
+        const finalResult = document.getElementById('finalResult');
+        const errorMessage = document.getElementById('errorMessage');
+
+        // 状態管理
+        let myCards = [];
+        let selectedCardId = null;
+        let currentRound = 1;
+        let scores = { player1: 0, player2: 0 };
+
+        // 初期化
+        initializeBattle();
+
+        function initializeBattle() {
+            // ルーム情報表示
+            if (roomId) {
+                roomIdDisplay.textContent = roomId;
+            }
+
+            // Socket.IOイベント設定
+            setupSocketEvents();
+
+            // カード情報を取得
+            loadPlayerCards();
+
+            // イベントリスナー設定
+            confirmBtn.addEventListener('click', confirmCardSelection);
+            nextRoundBtn.addEventListener('click', nextRound);
+            document.getElementById('playAgainBtn').addEventListener('click', playAgain);
+            document.getElementById('homeBtn').addEventListener('click', goHome);
+        }
+
+        function setupSocketEvents() {
+            socket.on('connect', () => {
+                if (roomId) {
+                    socket.emit('rejoin_room', { room_id: roomId });
+                }
+            });
+
+            socket.on('battle_result', (data) => {
+                displayBattleResult(data);
+            });
+
+            socket.on('next_round', (data) => {
+                prepareNextRound(data.round);
+            });
+
+            socket.on('game_finished', (data) => {
+                displayGameEnd(data);
+            });
+
+            socket.on('error', (data) => {
+                showError(data.message);
+            });
+        }
+
+        async function loadPlayerCards() {
+            try {
+                // セッション情報からカード情報を取得
+                const response = await fetch(`/api/sessions/${sessionId}`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    myCards = data.cards;
+                    displayPlayerCards();
+                } else {
+                    throw new Error(data.error);
+                }
+            } catch (error) {
+                console.error('Error loading cards:', error);
+                showError('カード情報の読み込みに失敗しました: ' + error.message);
+            }
+        }
+
+        function displayPlayerCards() {
+            playerCards.innerHTML = '';
+
+            myCards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = `card ${card.used ? 'used' : ''}`;
+                cardElement.dataset.cardId = card.id;
+
+                if (!card.used) {
+                    cardElement.addEventListener('click', () => selectCard(card.id));
+                }
+
+                cardElement.innerHTML = `
+                    <img src="${card.card_image_url}" class="card-image" alt="Card ${card.id}">
+                    <h4>${card.name}</h4>
+                    <div class="card-stats">
+                        <div class="stat">
+                            <div class="stat-label">攻撃力</div>
+                            <div class="stat-value">${card.attack_power}</div>
+                        </div>
+                        <div class="stat">
+                            <div class="stat-label">属性</div>
+                            <div class="stat-value">${card.attribute}</div>
+                        </div>
+                    </div>
+                `;
+
+                playerCards.appendChild(cardElement);
+            });
+        }
+
+        function selectCard(cardId) {
+            // 以前の選択を解除
+            document.querySelectorAll('.card').forEach(card => {
+                card.classList.remove('selected');
+            });
+
+            // 新しい選択
+            const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
+            if (cardElement && !cardElement.classList.contains('used')) {
+                cardElement.classList.add('selected');
+                selectedCardId = cardId;
+                confirmBtn.disabled = false;
+            }
+        }
+
+        function confirmCardSelection() {
+            if (!selectedCardId) {
+                showError('カードを選択してください');
+                return;
+            }
+
+            // カード選択をサーバーに送信
+            socket.emit('card_selected', {
+                room_id: roomId,
+                card_id: selectedCardId
+            });
+
+            // 待機画面に切り替え
+            showWaitingScreen();
+        }
+
+        function showWaitingScreen() {
+            cardSelection.style.display = 'none';
+            waitingScreen.style.display = 'block';
+            phaseIndicator.textContent = '相手の選択待ち';
+            phaseIndicator.className = 'phase-indicator battle';
+        }
+
+        function displayBattleResult(data) {
+            waitingScreen.style.display = 'none';
+            battleAnimation.style.display = 'block';
+            phaseIndicator.textContent = 'バトル中';
+
+            // バトルカードを表示
+            battleCards.innerHTML = `
+                <div class="battle-card ${data.winner === socket.id ? 'winner' : 'loser'}">
+                    <h4>あなたのカード</h4>
+                    <img src="${getMyCard(data).card_image_url}" class="card-image">
+                    <h5>${getMyCard(data).name}</h5>
+                    <p>攻撃力: ${getMyCardPower(data)}</p>
+                </div>
+                
+                <div class="vs-animation">VS</div>
+                
+                <div class="battle-card ${data.winner !== socket.id && data.winner ? 'winner' : 'loser'}">
+                    <h4>相手のカード</h4>
+                    <img src="${getOpponentCard(data).card_image_url}" class="card-image">
+                    <h5>${getOpponentCard(data).name}</h5>
+                    <p>攻撃力: ${getOpponentCardPower(data)}</p>
+                </div>
+            `;
+
+            // ダメージ計算を表示
+            displayDamageCalculation(data);
+
+            // スコアを更新
+            updateScores(data.scores);
+
+            // 3秒後に結果画面
+            setTimeout(() => {
+                showBattleResult(data);
+            }, 3000);
+        }
+
+        function getMyCard(data) {
+            return data.player1.player_id === socket.id ? data.player1.card : data.player2.card;
+        }
+
+        function getOpponentCard(data) {
+            return data.player1.player_id === socket.id ? data.player2.card : data.player1.card;
+        }
+
+        function getMyCardPower(data) {
+            return data.player1.player_id === socket.id ? data.player1.power : data.player2.power;
+        }
+
+        function getOpponentCardPower(data) {
+            return data.player1.player_id === socket.id ? data.player2.power : data.player1.power;
+        }
+
+        function displayDamageCalculation(data) {
+            const myCard = getMyCard(data);
+            const opponentCard = getOpponentCard(data);
+            const myPower = getMyCardPower(data);
+            const opponentPower = getOpponentCardPower(data);
+
+            const myEffectiveness = getEffectiveness(myCard.attribute, opponentCard.attribute);
+            const opponentEffectiveness = getEffectiveness(opponentCard.attribute, myCard.attribute);
+
+            damageCalculation.innerHTML = `
+                <h4>ダメージ計算</h4>
+                <div class="effectiveness ${myEffectiveness.class}">
+                    あなた: ${myCard.attribute} vs ${opponentCard.attribute} = ${myEffectiveness.text}
+                </div>
+                <div>あなたの攻撃力: ${myCard.attack_power} → ${myPower}</div>
+                <div class="effectiveness ${opponentEffectiveness.class}">
+                    相手: ${opponentCard.attribute} vs ${myCard.attribute} = ${opponentEffectiveness.text}
+                </div>
+                <div>相手の攻撃力: ${opponentCard.attack_power} → ${opponentPower}</div>
+            `;
+        }
+
+        function getEffectiveness(attackerAttr, defenderAttr) {
+            const effectiveness = {
+                '火': { '土': 'advantage', '水': 'disadvantage', '火': 'normal' },
+                '水': { '火': 'advantage', '土': 'disadvantage', '水': 'normal' },
+                '土': { '水': 'advantage', '火': 'disadvantage', '土': 'normal' }
+            };
+
+            const result = effectiveness[attackerAttr]?.[defenderAttr] || 'normal';
+            const text = {
+                'advantage': '有利 (×1.2)',
+                'disadvantage': '不利 (×0.8)',
+                'normal': '等倍 (×1.0)'
+            };
+
+            return {
+                class: result,
+                text: text[result]
+            };
+        }
+
+        function updateScores(newScores) {
+            // スコアオブジェクトのキーがプレイヤーIDになっているので、適切に表示
+            scores = newScores;
+            const myScore = newScores[socket.id] || 0;
+            const opponentScore = Object.values(newScores).find(score => score !== myScore) || 0;
+            
+            player1Score.textContent = myScore;
+            player2Score.textContent = opponentScore;
+        }
+
+        function showBattleResult(data) {
+            battleAnimation.style.display = 'none';
+            battleResult.style.display = 'block';
+            phaseIndicator.textContent = 'ラウンド結果';
+            phaseIndicator.className = 'phase-indicator result';
+
+            // 勝敗表示
+            if (!data.winner) {
+                roundWinner.textContent = '引き分け！';
+                roundWinner.className = 'round-winner draw';
+            } else if (data.winner === socket.id) {
+                roundWinner.textContent = 'あなたの勝利！';
+                roundWinner.className = 'round-winner victory';
+            } else {
+                roundWinner.textContent = '相手の勝利...';
+                roundWinner.className = 'round-winner defeat';
+            }
+
+            // 使用済みカードをマーク
+            markCardAsUsed(selectedCardId);
+        }
+
+        function markCardAsUsed(cardId) {
+            const card = myCards.find(c => c.id === cardId);
+            if (card) {
+                card.used = true;
+            }
+        }
+
+        function nextRound() {
+            selectedCardId = null;
+            battleResult.style.display = 'none';
+            cardSelection.style.display = 'block';
+            phaseIndicator.textContent = 'カード選択中';
+            phaseIndicator.className = 'phase-indicator selection';
+            confirmBtn.disabled = true;
+
+            // カード表示を更新
+            displayPlayerCards();
+        }
+
+        function prepareNextRound(round) {
+            currentRound = round;
+            roundNumber.textContent = `Round ${round}`;
+            nextRound();
+        }
+
+        function displayGameEnd(data) {
+            battleResult.style.display = 'none';
+            gameEnd.style.display = 'block';
+
+            if (data.winner === socket.id) {
+                finalResult.textContent = '🎉 ゲーム勝利！';
+                finalResult.className = 'final-result victory';
+            } else {
+                finalResult.textContent = '😢 ゲーム敗北...';
+                finalResult.className = 'final-result defeat';
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            setTimeout(() => {
+                errorMessage.style.display = 'none';
+            }, 5000);
+        }
+
+        function playAgain() {
+            window.location.href = 'matching.html';
+        }
+
+        function goHome() {
+            window.location.href = 'matching.html';
+        }
+
+        function goBack() {
+            window.location.href = `card-generation.html?room=${roomId}`;
+        }
+    </script>
+</body>
+</html>
