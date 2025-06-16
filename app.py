@@ -679,6 +679,8 @@ def calculate_battle_power(attacker_card, defender_card):
         'is_effective': is_effective
     }
 
+# app.py の process_battle 関数を修正
+
 def process_battle(room_id, round_number):
     """戦闘処理"""
     room = rooms[room_id]
@@ -737,12 +739,23 @@ def process_battle(room_id, round_number):
     
     print(f"Current scores: {room['scores']}")
     
-    # カードを使用済みにマーク
+    # ★★★ 重要: カードを使用済みにマーク（両方のプレイヤーで） ★★★
+    selected_card_ids = {
+        player1: selections[player1]['card']['id'],
+        player2: selections[player2]['card']['id']
+    }
+    
+    print(f"Marking cards as used: Player1 Card {selected_card_ids[player1]}, Player2 Card {selected_card_ids[player2]}")
+    
     for player_id in [player1, player2]:
         player_cards = room['player_cards'][player_id]
+        selected_card_id = selected_card_ids[player_id]
+        
+        # そのプレイヤーのカードリストで該当カードを使用済みにマーク
         for card in player_cards:
-            if card['id'] == selections[player_id]['card']['id']:
+            if card['id'] == selected_card_id:
                 card['used'] = True
+                print(f"Marked card {selected_card_id} as used for player {player_id}")
                 break
     
     # バトル結果データを作成
@@ -765,7 +778,12 @@ def process_battle(room_id, round_number):
         'loser_card': loser_card,
         'scores': room['scores'].copy(),
         'is_draw': winner is None,
-        'battle_timestamp': datetime.now().isoformat()
+        'battle_timestamp': datetime.now().isoformat(),
+        # ★★★ 追加: 更新されたカード情報を送信 ★★★
+        'updated_cards': {
+            player1: room['player_cards'][player1],
+            player2: room['player_cards'][player2]
+        }
     }
     
     # バトル履歴に保存
@@ -814,7 +832,12 @@ def process_battle(room_id, round_number):
         def start_next_round():
             socketio.emit('next_round', {
                 'round': room['current_round'],
-                'message': f'Round {room["current_round"]} 開始！'
+                'message': f'Round {room["current_round"]} 開始！',
+                # ★★★ 追加: 更新されたカード情報も送信 ★★★
+                'updated_cards': {
+                    player1: room['player_cards'][player1],
+                    player2: room['player_cards'][player2]
+                }
             }, room=room_id)
             print(f"Next round {room['current_round']} started in room {room_id}")
         
