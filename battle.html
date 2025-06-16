@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo Battle - バトル</title>
+    <title>Photo Battle - バトル（デバッグ版）</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         * {
@@ -61,6 +61,55 @@
             padding: 8px 16px;
             border-radius: 20px;
             font-size: 0.9em;
+        }
+
+        /* デバッグパネル */
+        .debug-panel {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            font-size: 12px;
+            max-width: 400px;
+            z-index: 10000;
+            font-family: monospace;
+        }
+
+        .debug-title {
+            font-weight: bold;
+            margin-bottom: 10px;
+            color: #4ecdc4;
+        }
+
+        .debug-section {
+            margin-bottom: 10px;
+            padding: 5px;
+            border-left: 3px solid #ff6b6b;
+            padding-left: 8px;
+        }
+
+        .debug-buttons {
+            display: flex;
+            gap: 5px;
+            flex-wrap: wrap;
+            margin-top: 10px;
+        }
+
+        .debug-btn {
+            background: #4ecdc4;
+            color: white;
+            border: none;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 10px;
+            cursor: pointer;
+        }
+
+        .debug-btn:hover {
+            background: #ff6b6b;
         }
 
         .score-board {
@@ -138,7 +187,6 @@
             min-height: 500px;
         }
 
-        /* カード選択フェーズ */
         .card-selection {
             display: block;
         }
@@ -195,6 +243,18 @@
             border-radius: 20px;
             font-weight: bold;
             z-index: 2;
+        }
+
+        .card-debug {
+            position: absolute;
+            top: 5px;
+            left: 5px;
+            background: rgba(255,0,0,0.8);
+            color: white;
+            padding: 2px 5px;
+            border-radius: 3px;
+            font-size: 10px;
+            font-family: monospace;
         }
 
         .card-image {
@@ -256,7 +316,6 @@
             transform: none;
         }
 
-        /* 待機画面 */
         .waiting-screen {
             display: none;
             text-align: center;
@@ -280,7 +339,6 @@
             80%, 100% { content: ''; }
         }
 
-        /* バトルアニメーション */
         .battle-animation {
             display: none;
             text-align: center;
@@ -358,7 +416,6 @@
             color: #666;
         }
 
-        /* 結果表示 */
         .battle-result {
             display: none;
             text-align: center;
@@ -400,7 +457,6 @@
             box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
         }
 
-        /* ゲーム終了 */
         .game-end {
             display: none;
             text-align: center;
@@ -456,7 +512,6 @@
             box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
         }
 
-        /* エラーメッセージ */
         .error-message {
             background: #ff6b6b;
             color: white;
@@ -467,8 +522,12 @@
             font-weight: bold;
         }
 
-        /* レスポンシブ */
         @media (max-width: 768px) {
+            .debug-panel {
+                position: relative;
+                margin-bottom: 20px;
+            }
+            
             .battle-cards {
                 flex-direction: column;
             }
@@ -489,12 +548,40 @@
     </style>
 </head>
 <body>
+    <!-- 🔧 デバッグパネル -->
+    <div class="debug-panel" id="debugPanel">
+        <div class="debug-title">🔧 Debug Panel</div>
+        
+        <div class="debug-section">
+            <strong>接続状態:</strong>
+            <div id="debugConnection">未接続</div>
+        </div>
+        
+        <div class="debug-section">
+            <strong>カード状態:</strong>
+            <div id="debugCards">読み込み中...</div>
+        </div>
+        
+        <div class="debug-section">
+            <strong>選択中:</strong>
+            <div id="debugSelection">なし</div>
+        </div>
+        
+        <div class="debug-buttons">
+            <button class="debug-btn" onclick="debugLogCards()">Log Cards</button>
+            <button class="debug-btn" onclick="debugResetCards()">Reset Cards</button>
+            <button class="debug-btn" onclick="debugRoomState()">Room State</button>
+            <button class="debug-btn" onclick="debugForceSync()">Force Sync</button>
+            <button class="debug-btn" onclick="toggleDebugPanel()">Hide Panel</button>
+        </div>
+    </div>
+
     <div class="container">
         <div class="header">
             <button class="back-btn" onclick="goBack()">← 戻る</button>
             <div class="room-info" id="roomInfo">ルーム: <span id="roomIdDisplay"></span></div>
             
-            <h1>⚔️ Photo Battle</h1>
+            <h1>⚔️ Photo Battle (Debug)</h1>
         </div>
 
         <div class="score-board">
@@ -517,7 +604,6 @@
         </div>
 
         <div class="battle-area">
-            <!-- カード選択フェーズ -->
             <div id="cardSelection" class="card-selection">
                 <div class="your-cards">
                     <h3>バトルで使用するカードを選択してください</h3>
@@ -531,7 +617,6 @@
                 </div>
             </div>
 
-            <!-- 待機画面 -->
             <div id="waitingScreen" class="waiting-screen">
                 <h3>相手の選択を待っています</h3>
                 <div class="waiting-animation">
@@ -539,26 +624,21 @@
                 </div>
             </div>
 
-            <!-- バトルアニメーション -->
             <div id="battleAnimation" class="battle-animation">
                 <h3>⚔️ バトル中 ⚔️</h3>
                 
                 <div class="battle-cards" id="battleCards">
-                    <!-- バトルカードがここに表示される -->
                 </div>
 
                 <div id="damageCalculation" class="damage-calculation">
-                    <!-- ダメージ計算がここに表示される -->
                 </div>
             </div>
 
-            <!-- バトル結果 -->
             <div id="battleResult" class="battle-result">
                 <div id="roundWinner" class="round-winner"></div>
                 <button id="nextRoundBtn" class="next-round-btn">次のラウンドへ</button>
             </div>
 
-            <!-- ゲーム終了 -->
             <div id="gameEnd" class="game-end">
                 <div id="finalResult" class="final-result"></div>
                 <div>
@@ -567,7 +647,6 @@
                 </div>
             </div>
 
-            <!-- エラーメッセージ -->
             <div id="errorMessage" class="error-message"></div>
         </div>
     </div>
@@ -578,221 +657,29 @@
         const roomId = urlParams.get('room');
         const sessionId = urlParams.get('session');
         
-        // Socket.IO接続
-        // battle.html と card-generation.html の共通改善
-
-// 3つのHTMLファイル（matching.html, card-generation.html, battle.html）の
-// Socket.IO接続部分を以下に置き換え
-
-// 自動的にサーバーURLを決定する関数
-function getServerUrl() {
-    // 現在のページのホストとポートを取得
-    const currentHost = window.location.hostname;
-    const currentPort = window.location.port;
-    
-    // もしポート番号が指定されていれば、同じホスト・ポートを使用
-    if (currentPort) {
-        return `http://${currentHost}:${currentPort}`;
-    }
-    
-    // ポート指定がない場合は現在のホストをそのまま使用
-    return `${window.location.protocol}//${currentHost}`;
-}
-
-// Socket.IO接続（自動設定）
-const serverUrl = getServerUrl();
-console.log('🔌 Connecting to server:', serverUrl);
-
-const socket = io(serverUrl, {
-    autoConnect: true,
-    reconnection: true,
-    reconnectionDelay: 1000,
-    reconnectionAttempts: 5,
-    timeout: 20000,
-    // 接続方式のフォールバック（Wi-Fi環境で安定）
-    transports: ['websocket', 'polling']
-});
-
-// 接続状態の管理
-let connectionRetryCount = 0;
-const maxRetries = 3;
-
-function setupSocketEvents() {
-    socket.on('connect', () => {
-        console.log('✅ Socket Connected');
-        console.log('🆔 Socket ID:', socket.id);
-        console.log('🌐 Server URL:', serverUrl);
-        connectionRetryCount = 0; // リセット
-        
-        // 接続成功の視覚的フィードバック
-        if (typeof showSuccess === 'function') {
-            showSuccess('サーバーに接続しました');
-        }
-        
-        if (roomId) {
-            console.log('🏠 Rejoining room:', roomId);
-            setTimeout(() => {
-                socket.emit('rejoin_room', { room_id: roomId });
-            }, 500);
-        }
-    });
-
-    socket.on('disconnect', (reason) => {
-        console.log('❌ Socket Disconnected');
-        console.log('📝 Reason:', reason);
-        
-        if (typeof showError === 'function') {
-            showError('サーバーから切断されました');
-        }
-        
-        if (reason === 'io server disconnect') {
-            // サーバーから切断された場合、手動で再接続
-            socket.connect();
-        }
-    });
-
-    socket.on('reconnect', (attemptNumber) => {
-        console.log('🔄 Socket Reconnected');
-        console.log('🎯 Attempt:', attemptNumber);
-        
-        if (typeof showSuccess === 'function') {
-            showSuccess('サーバーに再接続しました');
-        }
-        
-        if (roomId) {
-            socket.emit('rejoin_room', { room_id: roomId });
-        }
-    });
-
-    socket.on('connect_error', (error) => {
-        console.error('🚫 Connection Error');
-        console.error('❗ Error:', error);
-        console.error('🌐 Attempted URL:', serverUrl);
-        connectionRetryCount++;
-        
-        if (connectionRetryCount >= maxRetries) {
-            if (typeof showError === 'function') {
-                showError(`サーバーに接続できません。URLを確認してください: ${serverUrl}`);
+        // 自動的にサーバーURLを決定する関数
+        function getServerUrl() {
+            const currentHost = window.location.hostname;
+            const currentPort = window.location.port;
+            
+            if (currentPort) {
+                return `http://${currentHost}:${currentPort}`;
             }
+            return `${window.location.protocol}//${currentHost}`;
         }
-    });
 
-    // 既存のイベントハンドラーをここに追加...
-    socket.on('error', (data) => {
-        console.error('🐛 Socket Error:', data.message);
-        if (typeof showError === 'function') {
-            showError(data.message);
-        }
-    });
-}
+        const serverUrl = getServerUrl();
+        console.log('🔌 Connecting to server:', serverUrl);
 
-// ページ読み込み時に接続状態を表示
-window.addEventListener('load', () => {
-    console.log('📱 Page loaded, server URL:', serverUrl);
-});
-
-// カード情報の自動移行を試行
-function attemptCardMigration() {
-    if (!roomId) return;
-    
-    console.log('=== Attempting Card Migration ===');
-    
-    // デバッグエンドポイントを使用してカード移行を試行
-    fetch(`/debug/migrate-cards/${roomId}`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('Migration result:', data);
-            if (data.migrations && data.migrations.length > 0) {
-                showSuccess('カード情報を復旧しました。もう一度カードを選択してください。');
-                // カード情報を再読み込み
-                if (typeof loadPlayerCards === 'function') {
-                    loadPlayerCards();
-                }
-            } else {
-                showError('カード情報の復旧に失敗しました。ページを再読み込みしてください。');
-            }
-        })
-        .catch(error => {
-            console.error('Migration failed:', error);
-            showError('カード情報の復旧に失敗しました。ページを再読み込みしてください。');
+        const socket = io(serverUrl, {
+            autoConnect: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5,
+            timeout: 20000,
+            transports: ['websocket', 'polling']
         });
-}
 
-// ページ遷移前の処理を追加
-window.addEventListener('beforeunload', (event) => {
-    // ページを離れる前にSocket.IOを適切に処理
-    if (socket && socket.connected) {
-        socket.emit('page_leaving', { room_id: roomId });
-    }
-});
-
-// battle.html 専用: カード選択前に接続状態を確認
-function confirmCardSelection() {
-    if (!selectedCardId) {
-        showError('カードを選択してください');
-        return;
-    }
-
-    // Socket接続状態を確認
-    if (!socket.connected) {
-        console.error('Socket not connected, attempting reconnection...');
-        showError('接続が切断されています。再接続中...');
-        
-        socket.connect();
-        setTimeout(() => {
-            if (socket.connected) {
-                console.log('Reconnected, retrying card selection...');
-                confirmCardSelection();
-            } else {
-                showError('再接続に失敗しました。ページを再読み込みしてください。');
-            }
-        }, 2000);
-        return;
-    }
-
-    console.log('=== Card Selection Debug ===');
-    console.log('Room ID:', roomId);
-    console.log('Selected Card ID:', selectedCardId, '(type:', typeof selectedCardId, ')');
-    console.log('Socket ID:', socket.id);
-    console.log('Socket connected:', socket.connected);
-
-    // カード選択をサーバーに送信
-    socket.emit('card_selected', {
-        room_id: roomId,
-        card_id: selectedCardId
-    });
-
-    // 待機画面に切り替え
-    showWaitingScreen();
-}
-
-// デバッグ用: 現在のルーム状態を表示
-function debugRoomState() {
-    if (!roomId) return;
-    
-    fetch(`/debug/room/${roomId}`)
-        .then(response => response.json())
-        .then(data => {
-            console.log('=== Current Room State ===');
-            console.log(data);
-        })
-        .catch(error => {
-            console.error('Failed to get room state:', error);
-        });
-}
-
-// デバッグボタンを追加（開発時のみ）
-if (window.location.hostname === 'localhost') {
-    const debugBtn = document.createElement('button');
-    debugBtn.textContent = 'Debug Room';
-    debugBtn.style.position = 'fixed';
-    debugBtn.style.top = '10px';
-    debugBtn.style.left = '10px';
-    debugBtn.style.zIndex = '9999';
-    debugBtn.onclick = debugRoomState;
-    document.body.appendChild(debugBtn);
-}
-        
         // DOM要素
         const roomIdDisplay = document.getElementById('roomIdDisplay');
         const player1Score = document.getElementById('player1Score');
@@ -813,106 +700,248 @@ if (window.location.hostname === 'localhost') {
         const finalResult = document.getElementById('finalResult');
         const errorMessage = document.getElementById('errorMessage');
 
+        // デバッグ要素
+        const debugConnection = document.getElementById('debugConnection');
+        const debugCards = document.getElementById('debugCards');
+        const debugSelection = document.getElementById('debugSelection');
+
         // 状態管理
         let myCards = [];
         let selectedCardId = null;
         let currentRound = 1;
         let scores = { player1: 0, player2: 0 };
 
+        // 🔧 デバッグ関数群
+        function updateDebugPanel() {
+            // 接続状態
+            debugConnection.textContent = socket.connected ? 
+                `✅ 接続済み (${socket.id})` : '❌ 切断中';
+            
+            // カード状態
+            const usedCount = myCards.filter(c => c.used).length;
+            const totalCount = myCards.length;
+            debugCards.innerHTML = `
+                Total: ${totalCount}, Used: ${usedCount}, Available: ${totalCount - usedCount}<br>
+                ${myCards.map(c => `${c.name}: ${c.used ? '❌' : '✅'}`).join(', ')}
+            `;
+            
+            // 選択状態
+            debugSelection.textContent = selectedCardId ? 
+                `Card ID: ${selectedCardId}` : 'なし';
+        }
+
+        function debugLogCards() {
+            console.log('=== Debug Card State ===');
+            console.log('My Cards:', myCards);
+            console.log('Selected Card ID:', selectedCardId);
+            console.log('Room ID:', roomId);
+            console.log('Session ID:', sessionId);
+            console.log('Socket ID:', socket.id);
+            console.log('Socket Connected:', socket.connected);
+            updateDebugPanel();
+        }
+
+        function debugResetCards() {
+            console.log('🔧 Manual card reset requested');
+            
+            // 1. ローカルでリセット
+            myCards.forEach(card => {
+                card.used = false;
+            });
+            
+            // 2. サーバーに強制リセット要求
+            if (roomId) {
+                socket.emit('reset_all_cards', { room_id: roomId });
+            }
+            
+            // 3. 表示更新
+            displayPlayerCards();
+            updateDebugPanel();
+            
+            console.log('✅ Manual reset complete');
+        }
+
+        function debugRoomState() {
+            if (!roomId) {
+                console.error('No room ID');
+                return;
+            }
+            
+            // サーバーから状態取得
+            socket.emit('get_room_status', { room_id: roomId });
+            
+            // REST APIでも確認
+            fetch(`/debug/room/${roomId}`)
+                .then(response => response.json())
+                .then(data => {
+                    console.log('=== Room State (REST) ===');
+                    console.log(data);
+                })
+                .catch(error => {
+                    console.error('Failed to get room state:', error);
+                });
+        }
+
+        function debugForceSync() {
+            console.log('🔧 Force sync with server...');
+            
+            if (!roomId) {
+                console.error('No room ID for sync');
+                return;
+            }
+            
+            // カード情報を再取得
+            loadPlayerCards().then(() => {
+                console.log('✅ Cards reloaded');
+                updateDebugPanel();
+            });
+            
+            // ルーム再参加
+            socket.emit('rejoin_room', { room_id: roomId });
+        }
+
+        function toggleDebugPanel() {
+            const panel = document.getElementById('debugPanel');
+            panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+        }
+
         // 初期化
         initializeBattle();
 
         function initializeBattle() {
-            // ルーム情報表示
             if (roomId) {
                 roomIdDisplay.textContent = roomId;
             }
 
-            // Socket.IOイベント設定
             setupSocketEvents();
-
-            // カード情報を取得
             loadPlayerCards();
 
-            // イベントリスナー設定
             confirmBtn.addEventListener('click', confirmCardSelection);
             nextRoundBtn.addEventListener('click', nextRound);
             document.getElementById('playAgainBtn').addEventListener('click', playAgain);
             document.getElementById('homeBtn').addEventListener('click', goHome);
+            
+            // デバッグパネル更新タイマー
+            setInterval(updateDebugPanel, 1000);
         }
 
         function setupSocketEvents() {
             socket.on('connect', () => {
-                console.log('=== Socket Connected ===');
-                console.log('Socket ID:', socket.id);
+                console.log('✅ Socket Connected');
+                console.log('🆔 Socket ID:', socket.id);
+                updateDebugPanel();
+                
                 if (roomId) {
-                    console.log('Rejoining room:', roomId);
+                    setTimeout(() => {
+                        socket.emit('rejoin_room', { room_id: roomId });
+                    }, 500);
+                }
+            });
+
+            socket.on('disconnect', (reason) => {
+                console.log('❌ Socket Disconnected:', reason);
+                updateDebugPanel();
+            });
+
+            socket.on('reconnect', (attemptNumber) => {
+                console.log('🔄 Socket Reconnected:', attemptNumber);
+                updateDebugPanel();
+                
+                if (roomId) {
                     socket.emit('rejoin_room', { room_id: roomId });
                 }
             });
 
+            socket.on('connect_error', (error) => {
+                console.error('🚫 Connection Error:', error);
+                updateDebugPanel();
+            });
+
             socket.on('battle_result', (data) => {
-                console.log('=== Received battle_result ===');
-                console.log('Data:', data);
+                console.log('🎯 Received battle_result');
                 displayBattleResult(data);
             });
 
             socket.on('next_round', (data) => {
+                console.log('🔄 Next round event:', data);
                 prepareNextRound(data.round);
             });
 
             socket.on('game_finished', (data) => {
+                console.log('🏁 Game finished event:', data);
                 displayGameEnd(data);
             });
 
+            // 🔥 新しいイベント: 再戦開始
+            socket.on('rematch_started', (data) => {
+                console.log('🔄 Rematch started event:', data);
+                handleRematchStarted(data);
+            });
+
+            // 🔥 新しいイベント: カードリセット
+            socket.on('cards_reset', (data) => {
+                console.log('🔄 Cards reset event:', data);
+                if (data.cards) {
+                    myCards = data.cards;
+                    displayPlayerCards();
+                    updateDebugPanel();
+                    showSuccess(data.message || 'カードがリセットされました');
+                }
+            });
+
+            socket.on('room_status', (data) => {
+                console.log('=== Room Status (Socket) ===');
+                console.log(data);
+            });
+
             socket.on('error', (data) => {
-                console.error('=== Socket Error ===');
-                console.error('Error:', data.message);
+                console.error('🐛 Socket Error:', data.message);
                 showError(data.message);
             });
         }
 
         async function loadPlayerCards() {
             try {
-                console.log('=== Loading Player Cards ===');
-                console.log('Session ID:', sessionId);
+                console.log('📋 Loading Player Cards');
                 
-                // セッション情報からカード情報を取得
                 const response = await fetch(`/api/sessions/${sessionId}`);
                 const data = await response.json();
                 
                 if (response.ok) {
                     myCards = data.cards;
-                    console.log('Loaded cards:', myCards);
-                    console.log('Card IDs and types:', myCards.map(c => ({ id: c.id, type: typeof c.id })));
+                    console.log('✅ Loaded cards:', myCards);
                     displayPlayerCards();
+                    updateDebugPanel();
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
-                console.error('Error loading cards:', error);
+                console.error('❌ Error loading cards:', error);
                 showError('カード情報の読み込みに失敗しました: ' + error.message);
             }
         }
 
         function displayPlayerCards() {
-            console.log('=== Displaying Player Cards ===');
-            console.log('My cards:', myCards);
+            console.log('🎴 Displaying Player Cards');
             
             playerCards.innerHTML = '';
 
             myCards.forEach((card, index) => {
-                console.log(`Card ${index}: ID=${card.id} (type: ${typeof card.id}), Name=${card.name}`);
-                
                 const cardElement = document.createElement('div');
                 cardElement.className = `card ${card.used ? 'used' : ''}`;
                 cardElement.dataset.cardId = card.id;
 
+                // 🔧 デバッグ情報を表示
+                const debugInfo = document.createElement('div');
+                debugInfo.className = 'card-debug';
+                debugInfo.textContent = `ID:${card.id} Used:${card.used}`;
+
                 if (!card.used) {
                     cardElement.addEventListener('click', () => {
-                        console.log(`Selecting card: ID=${card.id} (type: ${typeof card.id})`);
                         selectCard(card.id);
                     });
+                } else {
+                    cardElement.style.pointerEvents = 'none';
                 }
 
                 cardElement.innerHTML = `
@@ -930,14 +959,27 @@ if (window.location.hostname === 'localhost') {
                     </div>
                 `;
 
+                cardElement.appendChild(debugInfo);
                 playerCards.appendChild(cardElement);
             });
+            
+            updateDebugPanel();
         }
 
         function selectCard(cardId) {
-            console.log('=== Card Selection ===');
-            console.log(`Attempting to select card: ${cardId} (type: ${typeof cardId})`);
-            console.log('Available cards:', myCards.map(c => ({ id: c.id, type: typeof c.id, name: c.name })));
+            console.log('🎯 Card Selection');
+            console.log(`Attempting to select card: ${cardId}`);
+            
+            // 使用済みカードチェック
+            const targetCard = myCards.find(c => 
+                c.id === cardId || String(c.id) === String(cardId)
+            );
+            
+            if (targetCard && targetCard.used) {
+                console.log('❌ Cannot select used card:', targetCard.name);
+                showError('このカードは既に使用済みです');
+                return;
+            }
             
             // 以前の選択を解除
             document.querySelectorAll('.card').forEach(card => {
@@ -946,15 +988,16 @@ if (window.location.hostname === 'localhost') {
 
             // 新しい選択
             const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
-            console.log('Found card element:', cardElement);
             
             if (cardElement && !cardElement.classList.contains('used')) {
                 cardElement.classList.add('selected');
                 selectedCardId = cardId;
                 confirmBtn.disabled = false;
-                console.log(`Card selected: ${cardId}`);
+                console.log(`✅ Card selected: ${cardId}`);
+                updateDebugPanel();
             } else {
-                console.error('Card element not found or is used');
+                console.error('❌ Card element not found or is used');
+                showError('カードを選択できません');
             }
         }
 
@@ -964,19 +1007,21 @@ if (window.location.hostname === 'localhost') {
                 return;
             }
 
-            console.log('=== Card Selection Debug ===');
-            console.log('Room ID:', roomId);
-            console.log('Selected Card ID:', selectedCardId, '(type:', typeof selectedCardId, ')');
-            console.log('Socket ID:', socket.id);
-            console.log('Available cards:', myCards.map(c => ({ id: c.id, type: typeof c.id })));
+            if (!socket.connected) {
+                console.error('❌ Socket not connected');
+                showError('接続が切断されています。再接続中...');
+                return;
+            }
 
-            // カード選択をサーバーに送信
+            console.log('🎯 Confirming card selection');
+            console.log('Room ID:', roomId);
+            console.log('Selected Card ID:', selectedCardId);
+
             socket.emit('card_selected', {
                 room_id: roomId,
                 card_id: selectedCardId
             });
 
-            // 待機画面に切り替え
             showWaitingScreen();
         }
 
@@ -988,10 +1033,7 @@ if (window.location.hostname === 'localhost') {
         }
 
         function displayBattleResult(data) {
-            console.log('=== Battle Result Debug ===');
-            console.log('Full data:', data);
-            console.log('Players:', data.players);
-            console.log('My socket ID:', socket.id);
+            console.log('🎯 Battle Result:', data);
             
             waitingScreen.style.display = 'none';
             battleAnimation.style.display = 'block';
@@ -1001,19 +1043,13 @@ if (window.location.hostname === 'localhost') {
             const opponentCard = getOpponentCard(data);
             const myPower = getMyCardPower(data);
             const opponentPower = getOpponentCardPower(data);
-            
-            console.log('My card:', myCard);
-            console.log('Opponent card:', opponentCard);
-            console.log('My power:', myPower);
-            console.log('Opponent power:', opponentPower);
 
             if (!myCard || !opponentCard) {
-                console.error('Card data missing:', { myCard, opponentCard });
+                console.error('❌ Card data missing');
                 showError('カードデータが不正です');
                 return;
             }
 
-            // バトルカードを表示
             battleCards.innerHTML = `
                 <div class="battle-card ${data.winner === socket.id ? 'winner' : 'loser'}">
                     <h4>あなたのカード</h4>
@@ -1032,38 +1068,30 @@ if (window.location.hostname === 'localhost') {
                 </div>
             `;
 
-            // ダメージ計算を表示
             displayDamageCalculation(data);
-
-            // スコアを更新
             updateScores(data.scores);
 
-            // 3秒後に結果画面
             setTimeout(() => {
                 showBattleResult(data);
             }, 3000);
         }
 
         function getMyCard(data) {
-            // data.players オブジェクトから自分のプレイヤーデータを取得
             const myPlayerData = Object.values(data.players).find(p => p.player_id === socket.id);
             return myPlayerData ? myPlayerData.card : null;
         }
 
         function getOpponentCard(data) {
-            // data.players オブジェクトから相手のプレイヤーデータを取得
             const opponentData = Object.values(data.players).find(p => p.player_id !== socket.id);
             return opponentData ? opponentData.card : null;
         }
 
         function getMyCardPower(data) {
-            // 正しいプロパティパスでバトルパワーを取得
             const myPlayerData = Object.values(data.players).find(p => p.player_id === socket.id);
             return myPlayerData ? myPlayerData.battle_power.effective_power : 0;
         }
 
         function getOpponentCardPower(data) {
-            // 正しいプロパティパスでバトルパワーを取得
             const opponentData = Object.values(data.players).find(p => p.player_id !== socket.id);
             return opponentData ? opponentData.battle_power.effective_power : 0;
         }
@@ -1111,7 +1139,6 @@ if (window.location.hostname === 'localhost') {
         }
 
         function updateScores(newScores) {
-            // スコアオブジェクトのキーがプレイヤーIDになっているので、適切に表示
             scores = newScores;
             const myScore = newScores[socket.id] || 0;
             const opponentScore = Object.values(newScores).find(score => score !== myScore) || 0;
@@ -1126,7 +1153,6 @@ if (window.location.hostname === 'localhost') {
             phaseIndicator.textContent = 'ラウンド結果';
             phaseIndicator.className = 'phase-indicator result';
 
-            // 勝敗表示
             if (!data.winner) {
                 roundWinner.textContent = '引き分け！';
                 roundWinner.className = 'round-winner draw';
@@ -1138,18 +1164,61 @@ if (window.location.hostname === 'localhost') {
                 roundWinner.className = 'round-winner defeat';
             }
 
-            // 使用済みカードをマーク
-            markCardAsUsed(selectedCardId);
+            // 🔥 重要: 使用済みカードをマーク（ローカルとサーバー同期）
+            markCardAsUsedLocal(selectedCardId);
+            
+            // サーバーから最新状態を同期要求
+            setTimeout(() => {
+                debugForceSync();
+            }, 1000);
         }
 
-        function markCardAsUsed(cardId) {
-            const card = myCards.find(c => c.id === cardId);
+        function markCardAsUsedLocal(cardId) {
+            console.log('🏷️ Marking card as used locally:', cardId);
+            
+            const card = myCards.find(c => {
+                return c.id === cardId || 
+                       String(c.id) === String(cardId) || 
+                       Number(c.id) === Number(cardId);
+            });
+            
             if (card) {
                 card.used = true;
+                console.log('✅ Card marked as used locally:', card.name);
+                updateDebugPanel();
+                
+                // 即座に表示更新
+                updateCardDisplay();
+            } else {
+                console.error('❌ Card not found for marking:', cardId);
+                console.log('Available cards:', myCards.map(c => ({ id: c.id, name: c.name })));
             }
         }
 
+        function updateCardDisplay() {
+            myCards.forEach((card) => {
+                const cardElement = document.querySelector(`[data-card-id="${card.id}"]`);
+                if (cardElement) {
+                    if (card.used) {
+                        cardElement.classList.add('used');
+                        cardElement.style.pointerEvents = 'none';
+                        
+                        // デバッグ情報も更新
+                        const debugInfo = cardElement.querySelector('.card-debug');
+                        if (debugInfo) {
+                            debugInfo.textContent = `ID:${card.id} Used:${card.used}`;
+                        }
+                    } else {
+                        cardElement.classList.remove('used');
+                        cardElement.style.pointerEvents = 'auto';
+                    }
+                }
+            });
+        }
+
         function nextRound() {
+            console.log('🔄 Starting next round...');
+            
             selectedCardId = null;
             battleResult.style.display = 'none';
             cardSelection.style.display = 'block';
@@ -1157,8 +1226,8 @@ if (window.location.hostname === 'localhost') {
             phaseIndicator.className = 'phase-indicator selection';
             confirmBtn.disabled = true;
 
-            // カード表示を更新
             displayPlayerCards();
+            updateDebugPanel();
         }
 
         function prepareNextRound(round) {
@@ -1180,6 +1249,40 @@ if (window.location.hostname === 'localhost') {
             }
         }
 
+        // 🔥 再戦開始処理
+        function handleRematchStarted(data) {
+            console.log('🔄 Handling rematch start:', data);
+            
+            // 🔥 強制的に全カードをリセット
+            myCards.forEach(card => {
+                card.used = false;
+            });
+            
+            // ゲーム状態をリセット
+            currentRound = 1;
+            scores = data.room_status?.scores || { player1: 0, player2: 0 };
+            selectedCardId = null;
+            
+            // UI をリセット
+            gameEnd.style.display = 'none';
+            battleResult.style.display = 'none';
+            battleAnimation.style.display = 'none';
+            waitingScreen.style.display = 'none';
+            cardSelection.style.display = 'block';
+            
+            updateScores(scores);
+            roundNumber.textContent = 'Round 1';
+            phaseIndicator.textContent = 'カード選択中';
+            phaseIndicator.className = 'phase-indicator selection';
+            
+            displayPlayerCards();
+            confirmBtn.disabled = true;
+            
+            updateDebugPanel();
+            showSuccess('再戦が開始されました！');
+            console.log('✅ Rematch setup complete');
+        }
+
         function showError(message) {
             errorMessage.textContent = message;
             errorMessage.style.display = 'block';
@@ -1188,8 +1291,38 @@ if (window.location.hostname === 'localhost') {
             }, 5000);
         }
 
+        function showSuccess(message) {
+            let successElement = document.getElementById('successMessage');
+            if (!successElement) {
+                successElement = document.createElement('div');
+                successElement.id = 'successMessage';
+                successElement.style.cssText = `
+                    background: #4ecdc4;
+                    color: white;
+                    padding: 15px;
+                    border-radius: 10px;
+                    margin: 20px 0;
+                    font-weight: bold;
+                    display: none;
+                `;
+                errorMessage.parentNode.insertBefore(successElement, errorMessage);
+            }
+            
+            successElement.textContent = message;
+            successElement.style.display = 'block';
+            errorMessage.style.display = 'none';
+            setTimeout(() => {
+                successElement.style.display = 'none';
+            }, 5000);
+        }
+
         function playAgain() {
-            window.location.href = 'matching.html';
+            if (roomId) {
+                console.log('🔄 Requesting rematch...');
+                socket.emit('request_rematch', { room_id: roomId });
+            } else {
+                window.location.href = 'matching.html';
+            }
         }
 
         function goHome() {
@@ -1199,6 +1332,14 @@ if (window.location.hostname === 'localhost') {
         function goBack() {
             window.location.href = `card-generation.html?room=${roomId}`;
         }
+
+        // 初期デバッグ情報
+        window.addEventListener('load', () => {
+            console.log('📱 Page loaded, server URL:', serverUrl);
+            console.log('🏠 Room ID:', roomId);
+            console.log('🎫 Session ID:', sessionId);
+            updateDebugPanel();
+        });
     </script>
 </body>
 </html>

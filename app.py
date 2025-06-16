@@ -10,6 +10,7 @@ import json
 import shutil
 from datetime import datetime
 from werkzeug.utils import secure_filename
+import socket
 
 
 app = Flask(__name__)
@@ -67,8 +68,6 @@ def allowed_file(filename: str) -> bool:
     return '.' in filename and \
            filename.rsplit('.', 1)[1].lower() in ALLOWED_EXTENSIONS
 
-# app.py の prepare_card_for_game_logic 関数を修正
-
 def prepare_card_for_game_logic(card_info: dict, session_id: str, card_index: int) -> dict:
     """ゲームロジック担当者向けのカードデータを準備"""
     game_card = card_info['game_data'].copy()
@@ -111,8 +110,8 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'service': 'photo-battle-app',
-        'version': '2.0.0',
-        'features': ['socket_io', 'card_generation', 'battle_system']
+        'version': '2.1.0',
+        'features': ['socket_io', 'card_generation', 'battle_system', 'rematch_fix']
     })
 
 @app.route('/api/cards/generate', methods=['POST'])
@@ -228,11 +227,8 @@ def get_session_info(session_id: str):
         return jsonify({'error': f'Error retrieving session info: {str(e)}'}), 500
 
 # ===== Socket.IO イベントハンドラー =====
-# app.py のSocket.IO部分を以下で置き換え
-
 import math
 
-# ===== Socket.IO イベントハンドラー =====
 @socketio.on('connect')
 def on_connect():
     print(f'Client connected: {request.sid}')
@@ -241,15 +237,7 @@ def on_connect():
 @socketio.on('disconnect')
 def on_disconnect():
     print(f'Client disconnected: {request.sid}')
-    # ルームからプレイヤーを削除
-    for room_id, room in rooms.items():
-        if request.sid in room.get('players', []):
-            room['players'].remove(request.sid)
-            socketio.emit('player_disconnected', {
-                'player_id': request.sid,
-                'players_count': len(room['players'])
-            }, room=room_id)
-            break
+    # ルームからの即座削除はしない（ページ遷移の可能性があるため）
 
 @socketio.on('create_room')
 def create_room():
@@ -419,7 +407,6 @@ def rejoin_room(data):
     print(f"Player cards: {list(room['player_cards'].keys())}")
     print(f"Scores: {list(room.get('scores', {}).keys())}")
 
-
 @socketio.on('cards_ready')
 def cards_ready(data):
     """カード生成完了通知"""
@@ -471,63 +458,6 @@ def cards_ready(data):
         }, room=room_id)
         print(f"Both players ready in room {room_id}")
 
-@socketio.on('disconnect')
-def on_disconnect():
-    """クライアント切断時の処理を軽減"""
-    print(f'Client disconnected: {request.sid}')
-    # ルームからの即座削除はしない（ページ遷移の可能性があるため）
-    # 代わりに一定時間後に削除するか、再接続を待つ
-
-
-# デバッグ用エンドポイントを追加
-@app.route('/debug/room/<room_id>')
-def debug_room(room_id):
-    """ルーム状態のデバッグ表示"""
-    room_id = room_id.upper()
-    if room_id not in rooms:
-        return jsonify({'error': 'Room not found'}), 404
-    
-    room = rooms[room_id]
-    return jsonify({
-        'room_id': room_id,
-        'players': room.get('players', []),
-        'player_cards': {
-            player_id: len(cards) for player_id, cards in room.get('player_cards', {}).items()
-        },
-        'status': room.get('status'),
-        'scores': room.get('scores', {})
-    })
-
-
-@app.route('/debug/migrate-cards/<room_id>')
-def migrate_cards(room_id):
-    """手動でカード情報を現在のプレイヤーに移行"""
-    room_id = room_id.upper()
-    if room_id not in rooms:
-        return jsonify({'error': 'Room not found'}), 404
-    
-    room = rooms[room_id]
-    current_players = room.get('players', [])
-    player_cards = room.get('player_cards', {})
-    available_cards = list(player_cards.keys())
-    
-    migrations = []
-    
-    # 現在のプレイヤーIDと利用可能なカードIDをマッピング
-    for i, player_id in enumerate(current_players):
-        if player_id not in player_cards and i < len(available_cards):
-            old_id = available_cards[i]
-            player_cards[player_id] = player_cards[old_id]
-            del player_cards[old_id]
-            migrations.append(f"{old_id} -> {player_id}")
-    
-    return jsonify({
-        'migrations': migrations,
-        'current_players': current_players,
-        'player_cards': list(player_cards.keys())
-    })
-
-# さらに、handle_card_selection 関数にもデバッグを強化
 @socketio.on('card_selected')
 def handle_card_selection(data):
     """カード選択の処理 - 自動修復機能付き"""
@@ -580,7 +510,6 @@ def handle_card_selection(data):
             emit('error', {'message': 'カード情報が見つかりません。ページを再読み込みしてください。'})
             return
     
-    # 以下は既存の処理...
     current_round = room['current_round']
     round_key = f"round_{current_round}"
     
@@ -679,8 +608,6 @@ def calculate_battle_power(attacker_card, defender_card):
         'is_effective': is_effective
     }
 
-# app.py の process_battle 関数を修正
-
 def process_battle(room_id, round_number):
     """戦闘処理"""
     room = rooms[room_id]
@@ -739,23 +666,17 @@ def process_battle(room_id, round_number):
     
     print(f"Current scores: {room['scores']}")
     
-    # ★★★ 重要: カードを使用済みにマーク（両方のプレイヤーで） ★★★
-    selected_card_ids = {
-        player1: selections[player1]['card']['id'],
-        player2: selections[player2]['card']['id']
-    }
-    
-    print(f"Marking cards as used: Player1 Card {selected_card_ids[player1]}, Player2 Card {selected_card_ids[player2]}")
-    
+    # 🔥 重要: カードを使用済みにマーク（両プレイヤーのカードデータを更新）
     for player_id in [player1, player2]:
         player_cards = room['player_cards'][player_id]
-        selected_card_id = selected_card_ids[player_id]
+        selected_card_id = selections[player_id]['card']['id']
         
-        # そのプレイヤーのカードリストで該当カードを使用済みにマーク
         for card in player_cards:
-            if card['id'] == selected_card_id:
+            if (card['id'] == selected_card_id or 
+                str(card['id']) == str(selected_card_id) or
+                int(card['id']) == int(selected_card_id)):
                 card['used'] = True
-                print(f"Marked card {selected_card_id} as used for player {player_id}")
+                print(f"Marked card {card['name']} as used for player {player_id}")
                 break
     
     # バトル結果データを作成
@@ -779,11 +700,7 @@ def process_battle(room_id, round_number):
         'scores': room['scores'].copy(),
         'is_draw': winner is None,
         'battle_timestamp': datetime.now().isoformat(),
-        # ★★★ 追加: 更新されたカード情報を送信 ★★★
-        'updated_cards': {
-            player1: room['player_cards'][player1],
-            player2: room['player_cards'][player2]
-        }
+        'room_id': room_id  # 🔥 追加: ルームIDも含める
     }
     
     # バトル履歴に保存
@@ -814,7 +731,8 @@ def process_battle(room_id, round_number):
             'final_scores': room['scores'].copy(),
             'total_rounds': total_rounds_played,
             'battle_history': room['battle_history'],
-            'game_end_reason': '2勝先取' if max_score >= 2 else '3ラウンド終了'
+            'game_end_reason': '2勝先取' if max_score >= 2 else '3ラウンド終了',
+            'room_id': room_id  # 🔥 追加: ルームIDも含める
         }
         
         socketio.emit('game_finished', game_end_data, room=room_id)
@@ -823,6 +741,9 @@ def process_battle(room_id, round_number):
         print(f"Game finished in room {room_id}!")
         print(f"Final winner: {final_winner}")
         print(f"Final scores: {room['scores']}")
+        
+        # 🔥 ゲーム終了時に自動でカード状態をリセット（次回再戦用）
+        auto_reset_cards_after_game(room_id)
         
     else:
         # 次のラウンドへ
@@ -833,11 +754,7 @@ def process_battle(room_id, round_number):
             socketio.emit('next_round', {
                 'round': room['current_round'],
                 'message': f'Round {room["current_round"]} 開始！',
-                # ★★★ 追加: 更新されたカード情報も送信 ★★★
-                'updated_cards': {
-                    player1: room['player_cards'][player1],
-                    player2: room['player_cards'][player2]
-                }
+                'room_id': room_id
             }, room=room_id)
             print(f"Next round {room['current_round']} started in room {room_id}")
         
@@ -847,9 +764,30 @@ def process_battle(room_id, round_number):
             start_next_round()
         ))
 
+def auto_reset_cards_after_game(room_id):
+    """ゲーム終了後の自動カードリセット"""
+    if room_id not in rooms:
+        return
+    
+    room = rooms[room_id]
+    reset_count = 0
+    
+    print(f"=== Auto Reset Cards After Game ===")
+    print(f"Room: {room_id}")
+    
+    for player_id, cards in room.get('player_cards', {}).items():
+        print(f"Resetting cards for player {player_id}:")
+        for card in cards:
+            if card.get('used', False):
+                card['used'] = False
+                reset_count += 1
+                print(f"  Reset card: {card.get('name', 'Unknown')}")
+    
+    print(f"Total {reset_count} cards reset for future rematches")
+
 @socketio.on('request_rematch')
 def handle_rematch(data):
-    """再戦リクエスト"""
+    """再戦リクエスト - USED状態を確実にリセット"""
     room_id = data['room_id'].upper()
     
     if room_id not in rooms:
@@ -858,7 +796,12 @@ def handle_rematch(data):
     
     room = rooms[room_id]
     
-    # ルームをリセット
+    print(f"=== Rematch Debug ===")
+    print(f"Room ID: {room_id}")
+    print(f"Players: {room.get('players', [])}")
+    print(f"Player cards before reset: {list(room.get('player_cards', {}).keys())}")
+    
+    # ルーム状態をリセット
     room.update({
         'status': 'battle_ready',
         'current_round': 1,
@@ -867,23 +810,67 @@ def handle_rematch(data):
         'battle_history': []
     })
     
-    # 全てのカードの使用状況をリセット
+    # 🔥 重要: 全てのプレイヤーのカードの使用状況を確実にリセット
     for player_id, cards in room['player_cards'].items():
-        for card in cards:
+        print(f"Resetting cards for player {player_id}:")
+        for i, card in enumerate(cards):
+            old_used = card.get('used', False)
             card['used'] = False
+            print(f"  Card {i+1} ({card.get('name', 'Unknown')}): {old_used} -> False")
     
+    print(f"=== After Reset ===")
+    for player_id, cards in room['player_cards'].items():
+        used_count = sum(1 for card in cards if card.get('used', False))
+        print(f"Player {player_id}: {used_count} used cards (should be 0)")
+    
+    # 全プレイヤーに再戦開始を通知
     socketio.emit('rematch_started', {
-        'message': 'Rematch started! Round 1 begins.'
+        'message': 'Rematch started! Round 1 begins.',
+        'room_status': {
+            'current_round': 1,
+            'scores': room['scores'],
+            'players': room['players']
+        },
+        'reset_cards': True  # 🔥 カードリセットの明示的フラグ
     }, room=room_id)
     
     print(f"Rematch started in room {room_id}")
 
-@socketio.on('test_message')
-def handle_test_message(data):
-    print(f'Received test message: {data}')
-    emit('test_response', {'message': f'Server received: {data["message"]}'})
+@socketio.on('reset_all_cards')
+def handle_reset_all_cards(data):
+    """全カードの使用状態を強制リセット（デバッグ用）"""
+    room_id = data['room_id'].upper()
+    
+    if room_id not in rooms:
+        emit('error', {'message': 'Room not found'})
+        return
+    
+    room = rooms[room_id]
+    reset_count = 0
+    
+    print(f"=== Force Reset All Cards ===")
+    print(f"Room: {room_id}")
+    print(f"Requested by: {request.sid}")
+    
+    # 全プレイヤーのカードをリセット
+    for player_id, cards in room.get('player_cards', {}).items():
+        print(f"Force resetting cards for player {player_id}:")
+        for card in cards:
+            if card.get('used', False):
+                card['used'] = False
+                reset_count += 1
+                print(f"  Reset: {card.get('name', 'Unknown')}")
+    
+    # 全員に更新されたカード状態を通知
+    for player_id, cards in room.get('player_cards', {}).items():
+        socketio.emit('cards_reset', {
+            'cards': cards,
+            'message': f'{reset_count} cards have been reset',
+            'reset_by': 'force_reset'
+        }, room=player_id)
+    
+    print(f"Force reset {reset_count} cards in room {room_id}")
 
-# デバッグ用：ルーム状態確認
 @socketio.on('get_room_status')
 def get_room_status(data):
     """ルーム状態確認（デバッグ用）"""
@@ -891,33 +878,93 @@ def get_room_status(data):
     
     if room_id in rooms:
         room = rooms[room_id]
+        
+        # カードの使用状況を詳細に調査
+        card_status = {}
+        for player_id, cards in room.get('player_cards', {}).items():
+            card_status[player_id] = {
+                'total_cards': len(cards),
+                'used_cards': sum(1 for card in cards if card.get('used', False)),
+                'available_cards': sum(1 for card in cards if not card.get('used', False)),
+                'card_details': [
+                    {
+                        'id': card.get('id'),
+                        'name': card.get('name', 'Unknown'),
+                        'used': card.get('used', False)
+                    } for card in cards
+                ]
+            }
+        
         emit('room_status', {
             'room_id': room_id,
             'status': room.get('status'),
             'current_round': room.get('current_round'),
             'players': room.get('players', []),
             'scores': room.get('scores', {}),
-            'cards_ready': list(room.get('player_cards', {}).keys())
+            'cards_ready': list(room.get('player_cards', {}).keys()),
+            'card_status': card_status
         })
     else:
         emit('error', {'message': 'Room not found'})
 
-print("🎮 Photo Battle Socket.IO handlers loaded successfully!")
+# デバッグ用エンドポイント
+@app.route('/debug/room/<room_id>')
+def debug_room(room_id):
+    """ルーム状態のデバッグ表示"""
+    room_id = room_id.upper()
+    if room_id not in rooms:
+        return jsonify({'error': 'Room not found'}), 404
+    
+    room = rooms[room_id]
+    
+    # カードの使用状況を詳細に分析
+    card_analysis = {}
+    for player_id, cards in room.get('player_cards', {}).items():
+        card_analysis[player_id] = {
+            'total_cards': len(cards),
+            'used_cards': [card for card in cards if card.get('used', False)],
+            'available_cards': [card for card in cards if not card.get('used', False)]
+        }
+    
+    return jsonify({
+        'room_id': room_id,
+        'players': room.get('players', []),
+        'player_cards': {
+            player_id: len(cards) for player_id, cards in room.get('player_cards', {}).items()
+        },
+        'status': room.get('status'),
+        'current_round': room.get('current_round'),
+        'scores': room.get('scores', {}),
+        'card_analysis': card_analysis
+    })
 
-# エラーハンドラー
-@app.errorhandler(413)
-def too_large(e):
-    return jsonify({'error': 'File too large (max 16MB)'}), 413
-
-@app.errorhandler(404)
-def not_found(e):
-    return jsonify({'error': 'Resource not found'}), 404
-
-@app.errorhandler(500)
-def internal_error(e):
-    return jsonify({'error': 'Internal server error'}), 500
-
-# app.py に追加する緊急修復用エンドポイント
+@app.route('/debug/migrate-cards/<room_id>')
+def migrate_cards(room_id):
+    """手動でカード情報を現在のプレイヤーに移行"""
+    room_id = room_id.upper()
+    if room_id not in rooms:
+        return jsonify({'error': 'Room not found'}), 404
+    
+    room = rooms[room_id]
+    current_players = room.get('players', [])
+    player_cards = room.get('player_cards', {})
+    available_cards = list(player_cards.keys())
+    
+    migrations = []
+    
+    # 現在のプレイヤーIDと利用可能なカードIDをマッピング
+    for i, player_id in enumerate(current_players):
+        if player_id not in player_cards and i < len(available_cards):
+            old_id = available_cards[i]
+            player_cards[player_id] = player_cards[old_id]
+            del player_cards[old_id]
+            migrations.append(f"{old_id} -> {player_id}")
+    
+    return jsonify({
+        'migrations': migrations,
+        'current_players': current_players,
+        'player_cards': list(player_cards.keys())
+    })
 
 @app.route('/debug/fix-room/<room_id>')
 def fix_room(room_id):
@@ -974,133 +1021,24 @@ def fix_room(room_id):
         }
     })
 
+# エラーハンドラー
+@app.errorhandler(413)
+def too_large(e):
+    return jsonify({'error': 'File too large (max 16MB)'}), 413
 
-@app.route('/debug/force-sync/<room_id>/<player1_id>/<player2_id>')
-def force_sync(room_id, player1_id, player2_id):
-    """強制的にプレイヤーIDを同期"""
-    room_id = room_id.upper()
-    if room_id not in rooms:
-        return jsonify({'error': 'Room not found'}), 404
-    
-    room = rooms[room_id]
-    player_cards = room.get('player_cards', {})
-    available_cards = list(player_cards.keys())
-    
-    changes = []
-    
-    # プレイヤーリストを強制更新
-    room['players'] = [player1_id, player2_id]
-    changes.append(f"Force updated players to [{player1_id}, {player2_id}]")
-    
-    # カード情報を適切に割り当て
-    if len(available_cards) >= 2:
-        # 1人目のカード
-        if player1_id not in player_cards and len(available_cards) > 0:
-            old_owner = available_cards[0]
-            player_cards[player1_id] = player_cards[old_owner]
-            del player_cards[old_owner]
-            changes.append(f"Migrated cards: {old_owner} -> {player1_id}")
-            available_cards.remove(old_owner)
-        
-        # 2人目のカード
-        if player2_id not in player_cards and len(available_cards) > 0:
-            old_owner = available_cards[0]
-            player_cards[player2_id] = player_cards[old_owner]
-            del player_cards[old_owner]
-            changes.append(f"Migrated cards: {old_owner} -> {player2_id}")
-    
-    # スコアを同期
-    scores = room.setdefault('scores', {})
-    scores[player1_id] = scores.get(player1_id, 0)
-    scores[player2_id] = scores.get(player2_id, 0)
-    
-    # 不要なスコアを削除
-    for old_score_owner in list(scores.keys()):
-        if old_score_owner not in [player1_id, player2_id]:
-            del scores[old_score_owner]
-            changes.append(f"Removed old score for {old_score_owner}")
-    
-    return jsonify({
-        'room_id': room_id,
-        'changes': changes,
-        'final_state': {
-            'players': room['players'],
-            'card_owners': list(room['player_cards'].keys()),
-            'scores': room['scores']
-        }
-    })
+@app.errorhandler(400)
+def bad_request(e):
+    return jsonify({'error': 'Bad request'}), 400
 
+@app.errorhandler(404)
+def not_found(e):
+    return jsonify({'error': 'Resource not found'}), 404
 
-@app.route('/debug/room-status/<room_id>')
-def detailed_room_status(room_id):
-    """詳細なルーム状態を表示"""
-    room_id = room_id.upper()
-    if room_id not in rooms:
-        return jsonify({'error': 'Room not found'}), 404
-    
-    room = rooms[room_id]
-    
-    # プレイヤーとカードの詳細分析
-    current_players = room.get('players', [])
-    player_cards = room.get('player_cards', {})
-    scores = room.get('scores', {})
-    
-    analysis = {
-        'room_id': room_id,
-        'status': room.get('status', 'unknown'),
-        'current_round': room.get('current_round', 1),
-        'players': {
-            'count': len(current_players),
-            'list': current_players
-        },
-        'cards': {
-            'owners_count': len(player_cards),
-            'owners': list(player_cards.keys()),
-            'details': {}
-        },
-        'scores': scores,
-        'issues': []
-    }
-    
-    # カードの詳細情報
-    for owner, cards in player_cards.items():
-        analysis['cards']['details'][owner] = {
-            'card_count': len(cards),
-            'card_ids': [c.get('id') for c in cards],
-            'used_cards': [c.get('id') for c in cards if c.get('used', False)]
-        }
-    
-    # 問題の検出
-    if len(current_players) != len(player_cards):
-        analysis['issues'].append(f"Player count mismatch: {len(current_players)} players vs {len(player_cards)} card owners")
-    
-    for player in current_players:
-        if player not in player_cards:
-            analysis['issues'].append(f"Player {player} has no cards")
-    
-    for card_owner in player_cards:
-        if card_owner not in current_players:
-            analysis['issues'].append(f"Card owner {card_owner} not in player list")
-    
-    return jsonify(analysis)
-
-
-# フロントエンド用の自動修復関数
-@app.route('/api/auto-repair/<room_id>')
-def api_auto_repair(room_id):
-    """APIとして呼び出し可能な自動修復"""
-    try:
-        # fix_room を実行
-        result = fix_room(room_id)
-        return result
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
-# app.py の最後の部分を以下に置き換えるだけ
+@app.errorhandler(500)
+def internal_error(e):
+    return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    import socket
-    
     # ローカルIPアドレスを取得する関数
     def get_local_ip():
         try:
@@ -1116,12 +1054,13 @@ if __name__ == '__main__':
     local_ip = get_local_ip()
     port = 5000
     
-    print("🎮 Photo Battle Full Stack Server v2.0.0")
+    print("🎮 Photo Battle Full Stack Server v2.1.0")
     print("📋 Features:")
     print("   - HTML Pages: matching, card-generation, battle")
     print("   - Socket.IO: Real-time multiplayer")
     print("   - API: Card generation and image processing")
     print("   - Game Logic: Battle system with attribute effectiveness")
+    print("   - 🔥 USED状態リセット修正版")
     print("🚀 Server starting...")
     print("🌐 Access URLs:")
     print(f"   - 自分のPC: http://localhost:{port}/")
@@ -1132,6 +1071,11 @@ if __name__ == '__main__':
     print(f"   http://{local_ip}:{port}/")
     print("")
     print("💡 友達のデバイスが同じWi-Fiに接続されていることを確認してください！")
+    print("")
+    print("🔧 デバッグエンドポイント:")
+    print(f"   - ルーム状態: http://{local_ip}:{port}/debug/room/ROOM_ID")
+    print(f"   - カード移行: http://{local_ip}:{port}/debug/migrate-cards/ROOM_ID")
+    print(f"   - ルーム修復: http://{local_ip}:{port}/debug/fix-room/ROOM_ID")
     
     # 重要: host='0.0.0.0' にすることで、外部からのアクセスを許可
     socketio.run(app, debug=True, host='0.0.0.0', port=port)

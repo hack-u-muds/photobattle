@@ -459,8 +459,38 @@
     </div>
 
     <script>
-        // Socket.IO接続
-        const socket = io('http://localhost:5000');
+        // ★★★ Wi-Fi対応 Socket.IO設定（ここが変更点）★★★
+        
+        // 自動的にサーバーURLを決定する関数
+        function getServerUrl() {
+            // 現在のページのホストとポートを取得
+            const currentHost = window.location.hostname;
+            const currentPort = window.location.port;
+            
+            // もしポート番号が指定されていれば、同じホスト・ポートを使用
+            if (currentPort) {
+                return `http://${currentHost}:${currentPort}`;
+            }
+            
+            // ポート指定がない場合は現在のホストをそのまま使用
+            return `${window.location.protocol}//${currentHost}`;
+        }
+
+        // Socket.IO接続（自動設定）
+        const serverUrl = getServerUrl();
+        console.log('🔌 Connecting to server:', serverUrl);
+
+        const socket = io(serverUrl, {
+            autoConnect: true,
+            reconnection: true,
+            reconnectionDelay: 1000,
+            reconnectionAttempts: 5,
+            timeout: 20000,
+            // 接続方式のフォールバック（Wi-Fi環境で安定）
+            transports: ['websocket', 'polling']
+        });
+        
+        // ★★★ 変更点ここまで ★★★
         
         // DOM要素
         const createRoomBtn = document.getElementById('createRoomBtn');
@@ -480,13 +510,26 @@
 
         // Socket.IOイベント
         socket.on('connect', () => {
+            console.log('✅ Socket Connected');
+            console.log('🆔 Socket ID:', socket.id);
+            console.log('🌐 Server URL:', serverUrl);
             updateConnectionStatus(true);
             showSuccess('サーバーに接続しました');
         });
 
-        socket.on('disconnect', () => {
+        socket.on('disconnect', (reason) => {
+            console.log('❌ Socket Disconnected');
+            console.log('📝 Reason:', reason);
             updateConnectionStatus(false);
             showError('サーバーから切断されました');
+        });
+
+        socket.on('connect_error', (error) => {
+            console.error('🚫 Connection Error');
+            console.error('❗ Error:', error);
+            console.error('🌐 Attempted URL:', serverUrl);
+            updateConnectionStatus(false);
+            showError(`サーバーに接続できません: ${serverUrl}`);
         });
 
         socket.on('room_created', (data) => {
@@ -630,6 +673,11 @@
 
         // 初期化
         updateConnectionStatus(false);
+        
+        // ページ読み込み時に接続状態を表示
+        window.addEventListener('load', () => {
+            console.log('📱 Page loaded, server URL:', serverUrl);
+        });
     </script>
 </body>
 </html>
