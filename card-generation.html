@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Battle - カード生成</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            text-align: center;
+        }
+        .header {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 30px;
+            border-radius: 15px;
+            margin-bottom: 30px;
+        }
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 20px 0;
+            cursor: pointer;
+        }
+        .generate-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+        }
+        .back-btn {
+            background: #6c757d;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            margin: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎴 カード生成</h1>
+            <p>3枚の写真からバトルカードを作成しよう！</p>
+        </div>
+        
+        <button class="back-btn" onclick="history.back()">← マッチングに戻る</button>
+        
+        <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+            <div style="font-size: 4em; margin-bottom: 20px;">📸</div>
+            <p>クリックして3枚の写真を選択</p>
+            <input type="file" id="fileInput" style="display: none;" multiple accept="image/*">
+        </div>
+        
+        <button class="generate-btn" id="generateBtn" disabled>
+            🎴 カードを生成する
+        </button>
+        
+        <div id="results" style="margin-top: 30px;"></div>
+    </div>
+
+    <script>
+        const fileInput = document.getElementById('fileInput');
+        const generateBtn = document.getElementById('generateBtn');
+        let selectedFiles = [];
+
+        fileInput.addEventListener('change', (e) => {
+            selectedFiles = Array.from(e.target.files);
+            if (selectedFiles.length === 3) {
+                generateBtn.disabled = false;
+                generateBtn.textContent = '🎴 カードを生成する';
+            } else {
+                generateBtn.disabled = true;
+                generateBtn.textContent = `🎴 あと${3 - selectedFiles.length}枚必要です`;
+            }
+        });
+
+        generateBtn.addEventListener('click', async () => {
+            if (selectedFiles.length !== 3) return;
+
+            generateBtn.textContent = '生成中...';
+            generateBtn.disabled = true;
+
+            try {
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('images', file);
+                });
+
+                const response = await fetch('/api/cards/generate', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const data = await response.json();
+                
+                if (response.ok) {
+                    displayResults(data);
+                } else {
+                    alert('エラー: ' + data.error);
+                }
+            } catch (error) {
+                alert('カード生成エラー: ' + error.message);
+            }
+
+            generateBtn.textContent = '🎴 カードを生成する';
+            generateBtn.disabled = false;
+        });
+
+        function displayResults(data) {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>🎉 カード生成完了！</h2>';
+            
+            const cardsGrid = document.createElement('div');
+            cardsGrid.style.display = 'grid';
+            cardsGrid.style.gridTemplateColumns = 'repeat(auto-fit, minmax(250px, 1fr))';
+            cardsGrid.style.gap = '20px';
+            cardsGrid.style.marginTop = '20px';
+
+            data.cards.forEach(card => {
+                const cardDiv = document.createElement('div');
+                cardDiv.style.border = '2px solid #ddd';
+                cardDiv.style.borderRadius = '10px';
+                cardDiv.style.padding = '15px';
+                cardDiv.style.textAlign = 'center';
+                
+                cardDiv.innerHTML = `
+                    <img src="/api/cards/${data.session_id}/card_${card.id}.png" 
+                         style="width: 100%; max-width: 200px; border-radius: 8px;">
+                    <h3>${card.name}</h3>
+                    <p>攻撃力: ${card.attack_power}</p>
+                    <p>属性: ${card.attribute}</p>
+                `;
+                
+                cardsGrid.appendChild(cardDiv);
+            });
+
+            results.appendChild(cardsGrid);
+
+            // バトル開始ボタン
+            const battleBtn = document.createElement('button');
+            battleBtn.className = 'generate-btn';
+            battleBtn.style.marginTop = '30px';
+            battleBtn.textContent = '⚔️ バトル開始';
+            battleBtn.onclick = () => {
+                // URLパラメータからルーム情報を取得
+                const urlParams = new URLSearchParams(window.location.search);
+                const roomId = urlParams.get('room');
+                if (roomId) {
+                    window.location.href = `battle.html?room=${roomId}&session=${data.session_id}`;
+                } else {
+                    alert('ルーム情報が見つかりません');
+                }
+            };
+            results.appendChild(battleBtn);
+        }
+    </script>
+</body>
+</html>
