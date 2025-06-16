@@ -1,0 +1,783 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Battle - カード生成</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 30px;
+            text-align: center;
+            position: relative;
+        }
+
+        .header h1 {
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.2em;
+            opacity: 0.9;
+        }
+
+        .game-mode {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(255,255,255,0.2);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.9em;
+        }
+
+        .back-btn {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(255,255,255,0.2);
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+
+        .back-btn:hover {
+            background: rgba(255,255,255,0.3);
+        }
+
+        .upload-section {
+            padding: 40px;
+            text-align: center;
+        }
+
+        .upload-area {
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 40px;
+            margin: 20px 0;
+            transition: all 0.3s ease;
+            cursor: pointer;
+        }
+
+        .upload-area:hover {
+            border-color: #4ecdc4;
+            background-color: #f8f9fa;
+        }
+
+        .upload-area.dragover {
+            border-color: #ff6b6b;
+            background-color: #ffe6e6;
+        }
+
+        .upload-icon {
+            font-size: 4em;
+            color: #ddd;
+            margin-bottom: 20px;
+        }
+
+        .file-input {
+            display: none;
+        }
+
+        .upload-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin: 10px;
+        }
+
+        .upload-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+        }
+
+        .upload-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .generate-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 30px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-top: 20px;
+        }
+
+        .generate-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(255, 107, 107, 0.3);
+        }
+
+        .generate-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .preview-section {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin: 20px 0;
+        }
+
+        .preview-card {
+            border: 2px solid #eee;
+            border-radius: 10px;
+            padding: 15px;
+            text-align: center;
+            position: relative;
+        }
+
+        .preview-image {
+            width: 100%;
+            height: 150px;
+            object-fit: cover;
+            border-radius: 8px;
+            margin-bottom: 10px;
+        }
+
+        .remove-btn {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 50%;
+            width: 25px;
+            height: 25px;
+            cursor: pointer;
+            font-size: 0.8em;
+        }
+
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 40px;
+        }
+
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #4ecdc4;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .loading-text {
+            font-size: 1.2em;
+            margin: 10px 0;
+        }
+
+        .loading-progress {
+            background: #f0f0f0;
+            border-radius: 10px;
+            height: 8px;
+            margin: 20px 0;
+            overflow: hidden;
+        }
+
+        .loading-bar {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            height: 100%;
+            width: 0%;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+
+        .results-section {
+            display: none;
+            padding: 40px;
+            background: #f8f9fa;
+        }
+
+        .cards-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 30px;
+            margin-top: 30px;
+        }
+
+        .card-result {
+            background: white;
+            border-radius: 15px;
+            padding: 20px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            text-align: center;
+            transition: transform 0.3s ease;
+        }
+
+        .card-result:hover {
+            transform: translateY(-5px);
+        }
+
+        .card-image {
+            width: 100%;
+            max-width: 300px;
+            height: auto;
+            border-radius: 10px;
+            margin-bottom: 15px;
+        }
+
+        .card-stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .stat {
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .stat-label {
+            font-size: 0.9em;
+            color: #666;
+            margin-bottom: 5px;
+        }
+
+        .stat-value {
+            font-size: 1.2em;
+            font-weight: bold;
+            color: #333;
+        }
+
+        .next-step-section {
+            text-align: center;
+            margin-top: 30px;
+            padding: 20px;
+            background: white;
+            border-radius: 15px;
+        }
+
+        .next-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 1.3em;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .next-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .retry-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 30px;
+            font-size: 1.1em;
+            cursor: pointer;
+            margin: 10px;
+            transition: all 0.3s ease;
+        }
+
+        .retry-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+        }
+
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .success-message {
+            background: #4ecdc4;
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .room-info {
+            background: rgba(255,255,255,0.9);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+        }
+
+        .room-info.online {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <button class="back-btn" onclick="goBack()">← 戻る</button>
+            <div class="game-mode" id="gameModeDisplay">練習モード</div>
+            
+            <h1>🎴 カード生成</h1>
+            <p>3枚の写真からバトルカードを作成しよう！</p>
+        </div>
+
+        <!-- オンラインモード用のルーム情報 -->
+        <div id="roomInfo" class="room-info">
+            <strong>ルーム:</strong> <span id="roomIdInfo"></span> | 
+            <strong>相手の準備:</strong> <span id="opponentStatus">待機中...</span>
+        </div>
+
+        <div class="upload-section">
+            <h2>3枚の写真をアップロードしてください</h2>
+            
+            <div class="upload-area" onclick="document.getElementById('fileInput').click()">
+                <div class="upload-icon">📸</div>
+                <p>クリックまたはドラッグ&ドロップで写真を選択</p>
+                <p style="color: #666; font-size: 0.9em;">PNG, JPG, JPEG, GIF, BMP (最大16MB)</p>
+            </div>
+
+            <input type="file" id="fileInput" class="file-input" multiple accept="image/*">
+            
+            <div id="previewSection" class="preview-section"></div>
+            
+            <button id="generateBtn" class="generate-btn" disabled>
+                🎴 カードを生成する
+            </button>
+
+            <div id="errorMessage" class="error-message"></div>
+            <div id="successMessage" class="success-message"></div>
+        </div>
+
+        <div id="loadingSection" class="loading">
+            <div class="spinner"></div>
+            <h3 class="loading-text">カードを生成中...</h3>
+            <p>画像を分析して最強のカードを作成しています！</p>
+            <div class="loading-progress">
+                <div class="loading-bar" id="loadingBar"></div>
+            </div>
+        </div>
+
+        <div id="resultsSection" class="results-section">
+            <h2>🎉 カード生成完了！</h2>
+            <div id="cardsGrid" class="cards-grid"></div>
+            
+            <div class="next-step-section">
+                <h3>次のステップ</h3>
+                <div id="nextStepButtons">
+                    <!-- 練習モードの場合 -->
+                    <div id="practiceNext" style="display: none;">
+                        <button id="startPracticeBattle" class="next-btn">
+                            🤖 CPU戦を開始
+                        </button>
+                    </div>
+                    
+                    <!-- オンラインモードの場合 -->
+                    <div id="onlineNext" style="display: none;">
+                        <button id="readyForBattle" class="next-btn">
+                            ⚔️ バトル準備完了
+                        </button>
+                        <p style="margin-top: 15px; color: #666;">
+                            相手のカード生成が完了するまでお待ちください
+                        </p>
+                    </div>
+                </div>
+                
+                <button onclick="resetCards()" class="retry-btn">
+                    🔄 カードを作り直す
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE_URL = 'http://localhost:5000/api';
+        
+        // URL パラメータから設定を取得
+        const urlParams = new URLSearchParams(window.location.search);
+        const gameMode = urlParams.get('mode') || 'practice';
+        const roomId = urlParams.get('room');
+        
+        // DOM要素
+        const gameModeDisplay = document.getElementById('gameModeDisplay');
+        const roomInfo = document.getElementById('roomInfo');
+        const roomIdInfo = document.getElementById('roomIdInfo');
+        const opponentStatus = document.getElementById('opponentStatus');
+        const fileInput = document.getElementById('fileInput');
+        const uploadArea = document.querySelector('.upload-area');
+        const previewSection = document.getElementById('previewSection');
+        const generateBtn = document.getElementById('generateBtn');
+        const loadingSection = document.getElementById('loadingSection');
+        const loadingBar = document.getElementById('loadingBar');
+        const resultsSection = document.getElementById('resultsSection');
+        const cardsGrid = document.getElementById('cardsGrid');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+        const practiceNext = document.getElementById('practiceNext');
+        const onlineNext = document.getElementById('onlineNext');
+
+        // 状態管理
+        let selectedFiles = [];
+        let generatedCards = null;
+        let sessionId = null;
+
+        // Socket.IO (オンラインモードのみ)
+        let socket = null;
+        if (gameMode === 'online') {
+            socket = io('http://localhost:5000');
+            setupSocketEvents();
+        }
+
+        // 初期化
+        initializePage();
+
+        function initializePage() {
+            // ゲームモード表示
+            if (gameMode === 'practice') {
+                gameModeDisplay.textContent = '🎯 練習モード';
+            } else {
+                gameModeDisplay.textContent = '🌐 オンライン対戦';
+                roomInfo.classList.add('online');
+                roomIdInfo.textContent = roomId;
+            }
+
+            // イベントリスナー設定
+            fileInput.addEventListener('change', handleFileSelect);
+            generateBtn.addEventListener('click', generateCards);
+
+            // ドラッグ&ドロップ
+            setupDragAndDrop();
+
+            // 次のステップボタン
+            document.getElementById('startPracticeBattle')?.addEventListener('click', () => {
+                if (generatedCards) {
+                    const cardsParam = encodeURIComponent(JSON.stringify(generatedCards));
+                    window.location.href = `battle.html?mode=practice&cards=${cardsParam}`;
+                }
+            });
+
+            document.getElementById('readyForBattle')?.addEventListener('click', () => {
+                if (socket && roomId && generatedCards) {
+                    socket.emit('cards_ready', {
+                        room_id: roomId,
+                        cards: generatedCards
+                    });
+                    showSuccess('バトル準備完了！相手を待っています...');
+                }
+            });
+        }
+
+        function setupSocketEvents() {
+            socket.on('connect', () => {
+                if (roomId) {
+                    socket.emit('rejoin_room', { room_id: roomId });
+                }
+            });
+
+            socket.on('opponent_cards_ready', () => {
+                opponentStatus.textContent = '準備完了';
+                opponentStatus.style.color = '#4ecdc4';
+            });
+
+            socket.on('both_players_ready', (data) => {
+                showSuccess('両プレイヤー準備完了！バトル開始します！');
+                setTimeout(() => {
+                    window.location.href = `battle.html?mode=online&room=${roomId}&session=${sessionId}`;
+                }, 2000);
+            });
+        }
+
+        function setupDragAndDrop() {
+            uploadArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                uploadArea.classList.add('dragover');
+            });
+
+            uploadArea.addEventListener('dragleave', () => {
+                uploadArea.classList.remove('dragover');
+            });
+
+            uploadArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                uploadArea.classList.remove('dragover');
+                const files = Array.from(e.dataTransfer.files);
+                handleFiles(files);
+            });
+        }
+
+        function handleFileSelect(event) {
+            const files = Array.from(event.target.files);
+            handleFiles(files);
+        }
+
+        function handleFiles(files) {
+            const imageFiles = files.filter(file => file.type.startsWith('image/'));
+            
+            if (imageFiles.length === 0) {
+                showError('画像ファイルを選択してください');
+                return;
+            }
+
+            if (imageFiles.length > 3) {
+                showError('最大3枚まで選択できます');
+                return;
+            }
+
+            selectedFiles = imageFiles;
+            updatePreview();
+            updateGenerateButton();
+        }
+
+        function updatePreview() {
+            previewSection.innerHTML = '';
+            
+            selectedFiles.forEach((file, index) => {
+                const previewCard = document.createElement('div');
+                previewCard.className = 'preview-card';
+                
+                const img = document.createElement('img');
+                img.className = 'preview-image';
+                img.src = URL.createObjectURL(file);
+                
+                const removeBtn = document.createElement('button');
+                removeBtn.className = 'remove-btn';
+                removeBtn.innerHTML = '×';
+                removeBtn.onclick = () => removeFile(index);
+                
+                const fileName = document.createElement('p');
+                fileName.textContent = file.name;
+                fileName.style.fontSize = '0.8em';
+                fileName.style.color = '#666';
+                
+                previewCard.appendChild(img);
+                previewCard.appendChild(removeBtn);
+                previewCard.appendChild(fileName);
+                previewSection.appendChild(previewCard);
+            });
+        }
+
+        function removeFile(index) {
+            selectedFiles.splice(index, 1);
+            updatePreview();
+            updateGenerateButton();
+        }
+
+        function updateGenerateButton() {
+            generateBtn.disabled = selectedFiles.length !== 3;
+            if (selectedFiles.length === 3) {
+                generateBtn.textContent = '🎴 カードを生成する';
+            } else {
+                generateBtn.textContent = `🎴 あと${3 - selectedFiles.length}枚必要です`;
+            }
+        }
+
+        async function generateCards() {
+            if (selectedFiles.length !== 3) {
+                showError('3枚の画像が必要です');
+                return;
+            }
+
+            // ローディング表示
+            document.querySelector('.upload-section').style.display = 'none';
+            loadingSection.style.display = 'block';
+            
+            // プログレスバーアニメーション
+            animateProgress();
+
+            try {
+                const formData = new FormData();
+                selectedFiles.forEach(file => {
+                    formData.append('images', file);
+                });
+
+                const response = await fetch(`${API_BASE_URL}/cards/generate`, {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const data = await response.json();
+                
+                // 生成されたカード情報を保存
+                generatedCards = data.cards;
+                sessionId = data.session_id;
+                
+                // 結果表示
+                displayResults(data);
+                showSuccess('カードの生成が完了しました！');
+
+            } catch (error) {
+                console.error('Error:', error);
+                showError('カード生成中にエラーが発生しました: ' + error.message);
+                
+                loadingSection.style.display = 'none';
+                document.querySelector('.upload-section').style.display = 'block';
+            }
+        }
+
+        function animateProgress() {
+            let progress = 0;
+            const interval = setInterval(() => {
+                progress += Math.random() * 15;
+                if (progress > 95) progress = 95;
+                loadingBar.style.width = progress + '%';
+                
+                if (progress >= 95) {
+                    clearInterval(interval);
+                }
+            }, 200);
+        }
+
+        function displayResults(data) {
+            loadingSection.style.display = 'none';
+            resultsSection.style.display = 'block';
+            loadingBar.style.width = '100%';
+
+            cardsGrid.innerHTML = '';
+
+            data.cards.forEach(card => {
+                const cardElement = document.createElement('div');
+                cardElement.className = 'card-result';
+
+                const cardImage = document.createElement('img');
+                cardImage.className = 'card-image';
+                cardImage.src = `${API_BASE_URL}/cards/${data.session_id}/card_${card.id}.png`;
+                cardImage.alt = `Card ${card.id}`;
+
+                const cardName = document.createElement('h3');
+                cardName.textContent = card.name;
+
+                const cardStats = document.createElement('div');
+                cardStats.className = 'card-stats';
+
+                cardStats.innerHTML = `
+                    <div class="stat">
+                        <div class="stat-label">攻撃力</div>
+                        <div class="stat-value">${card.attack_power}</div>
+                    </div>
+                    <div class="stat">
+                        <div class="stat-label">属性</div>
+                        <div class="stat-value">${card.attribute}</div>
+                    </div>
+                `;
+
+                cardElement.appendChild(cardImage);
+                cardElement.appendChild(cardName);
+                cardElement.appendChild(cardStats);
+                cardsGrid.appendChild(cardElement);
+            });
+
+            // 次のステップボタンを表示
+            if (gameMode === 'practice') {
+                practiceNext.style.display = 'block';
+            } else {
+                onlineNext.style.display = 'block';
+            }
+        }
+
+        function resetCards() {
+            selectedFiles = [];
+            generatedCards = null;
+            sessionId = null;
+            
+            document.querySelector('.upload-section').style.display = 'block';
+            resultsSection.style.display = 'none';
+            loadingSection.style.display = 'none';
+            
+            previewSection.innerHTML = '';
+            updateGenerateButton();
+            hideMessages();
+            
+            // プログレスバーリセット
+            loadingBar.style.width = '0%';
+        }
+
+        function goBack() {
+            if (gameMode === 'practice') {
+                window.location.href = 'matching.html';
+            } else {
+                window.location.href = `matching.html`;
+            }
+        }
+
+        function showError(message) {
+            errorMessage.textContent = message;
+            errorMessage.style.display = 'block';
+            successMessage.style.display = 'none';
+            setTimeout(hideMessages, 5000);
+        }
+
+        function showSuccess(message) {
+            successMessage.textContent = message;
+            successMessage.style.display = 'block';
+            errorMessage.style.display = 'none';
+            setTimeout(hideMessages, 5000);
+        }
+
+        function hideMessages() {
+            errorMessage.style.display = 'none';
+            successMessage.style.display = 'none';
+        }
+
+        // 初期化
+        updateGenerateButton();
+    </script>
+</body>
+</html>
