@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify, send_file
+from flask_cors import CORS  # この行を追加
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -9,7 +10,7 @@ from typing import List, Dict
 import shutil
 
 app = Flask(__name__)
-
+CORS(app)
 # 設定
 UPLOAD_FOLDER = 'uploads'
 CARDS_FOLDER = 'generated_cards'
@@ -57,7 +58,7 @@ def prepare_card_for_game_logic(card_info: Dict, session_id: str, card_index: in
         }
     }
 
-@app.route('/health', methods=['GET'])
+@app.route('/api/health', methods=['GET'])
 def health_check():
     """
     ヘルスチェック用エンドポイント
@@ -70,7 +71,7 @@ def health_check():
         'features': ['attribute_system', 'card_generation']
     })
 
-@app.route('/generate-cards', methods=['POST'])
+@app.route('/api/cards/generate', methods=['POST'])
 def generate_cards():
     """
     3枚の画像からカードを生成するメインエンドポイント
