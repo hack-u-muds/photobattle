@@ -11,6 +11,7 @@ import shutil
 from datetime import datetime
 from werkzeug.utils import secure_filename
 import socket
+import math
 
 
 app = Flask(__name__)
@@ -110,8 +111,8 @@ def health_check():
         'status': 'healthy',
         'timestamp': datetime.now().isoformat(),
         'service': 'photo-battle-app',
-        'version': '2.1.0',
-        'features': ['socket_io', 'card_generation', 'battle_system', 'rematch_fix']
+        'version': '2.2.0',
+        'features': ['socket_io', 'card_generation', 'battle_system', 'used_sync_fix']
     })
 
 @app.route('/api/cards/generate', methods=['POST'])
@@ -227,7 +228,6 @@ def get_session_info(session_id: str):
         return jsonify({'error': f'Error retrieving session info: {str(e)}'}), 500
 
 # ===== Socket.IO イベントハンドラー =====
-import math
 
 @socketio.on('connect')
 def on_connect():
@@ -609,7 +609,7 @@ def calculate_battle_power(attacker_card, defender_card):
     }
 
 def process_battle(room_id, round_number):
-    """戦闘処理"""
+    """戦闘処理 - USED状態同期修正版"""
     room = rooms[room_id]
     round_key = f"round_{round_number}"
     selections = room['current_selections'][round_key]
@@ -625,8 +625,8 @@ def process_battle(room_id, round_number):
     card2 = selections[player2]['card']
     
     print(f"\n=== Battle Round {round_number} ===")
-    print(f"Player 1 ({player1}): {card1['name']} (Power: {card1['attack_power']}, Attr: {card1['attribute']})")
-    print(f"Player 2 ({player2}): {card2['name']} (Power: {card2['attack_power']}, Attr: {card2['attribute']})")
+    print(f"Player 1 ({player1}): {card1['name']} (ID: {card1['id']}, Power: {card1['attack_power']}, Attr: {card1['attribute']})")
+    print(f"Player 2 ({player2}): {card2['name']} (ID: {card2['id']}, Power: {card2['attack_power']}, Attr: {card2['attribute']})")
     
     # 各プレイヤーの攻撃力計算
     player1_battle = calculate_battle_power(card1, card2)
@@ -666,18 +666,42 @@ def process_battle(room_id, round_number):
     
     print(f"Current scores: {room['scores']}")
     
-    # 🔥 重要: カードを使用済みにマーク（両プレイヤーのカードデータを更新）
-    for player_id in [player1, player2]:
-        player_cards = room['player_cards'][player_id]
-        selected_card_id = selections[player_id]['card']['id']
-        
-        for card in player_cards:
-            if (card['id'] == selected_card_id or 
-                str(card['id']) == str(selected_card_id) or
-                int(card['id']) == int(selected_card_id)):
-                card['used'] = True
-                print(f"Marked card {card['name']} as used for player {player_id}")
-                break
+    # 🔥 重要: カードを使用済みにマーク（両プレイヤーのカードデータを確実に更新）
+    print(f"\n=== Marking Cards as Used ===")
+    
+    # プレイヤー1のカードをマーク
+    player1_card_id = card1['id']
+    print(f"Marking Player 1 ({player1}) card ID {player1_card_id} as used...")
+    player1_cards = room['player_cards'][player1]
+    for i, card in enumerate(player1_cards):
+        if (str(card['id']) == str(player1_card_id) or 
+            card['id'] == player1_card_id):
+            card['used'] = True
+            print(f"  ✅ Player 1 Card {i+1} '{card['name']}' marked as used")
+            break
+    else:
+        print(f"  ❌ Player 1 Card ID {player1_card_id} not found!")
+    
+    # プレイヤー2のカードをマーク
+    player2_card_id = card2['id']
+    print(f"Marking Player 2 ({player2}) card ID {player2_card_id} as used...")
+    player2_cards = room['player_cards'][player2]
+    for i, card in enumerate(player2_cards):
+        if (str(card['id']) == str(player2_card_id) or 
+            card['id'] == player2_card_id):
+            card['used'] = True
+            print(f"  ✅ Player 2 Card {i+1} '{card['name']}' marked as used")
+            break
+    else:
+        print(f"  ❌ Player 2 Card ID {player2_card_id} not found!")
+    
+    # 🔥 確認: 使用済み状態をログで検証
+    print(f"\n=== Verification of Used Status ===")
+    for player_id, cards in room['player_cards'].items():
+        used_count = sum(1 for card in cards if card.get('used', False))
+        print(f"Player {player_id}: {used_count} used cards out of {len(cards)}")
+        for i, card in enumerate(cards):
+            print(f"  Card {i+1}: {card['name']} (ID: {card['id']}) - Used: {card.get('used', False)}")
     
     # バトル結果データを作成
     battle_result = {
@@ -700,7 +724,12 @@ def process_battle(room_id, round_number):
         'scores': room['scores'].copy(),
         'is_draw': winner is None,
         'battle_timestamp': datetime.now().isoformat(),
-        'room_id': room_id  # 🔥 追加: ルームIDも含める
+        'room_id': room_id,
+        # 🔥 追加: 使用済みカード情報を明示的に送信
+        'used_cards': {
+            player1: player1_card_id,
+            player2: player2_card_id
+        }
     }
     
     # バトル履歴に保存
@@ -708,8 +737,17 @@ def process_battle(room_id, round_number):
         room['battle_history'] = []
     room['battle_history'].append(battle_result)
     
-    # 戦闘結果を全員に送信
+    # 🔥 重要: 戦闘結果を送信後、各プレイヤーに個別にカード状態を同期
     socketio.emit('battle_result', battle_result, room=room_id)
+    
+    # 🔥 追加: 各プレイヤーに最新のカード状態を個別送信
+    for player_id, cards in room['player_cards'].items():
+        socketio.emit('sync_card_status', {
+            'cards': cards,
+            'message': 'Card status synchronized',
+            'round': round_number
+        }, room=player_id)
+        print(f"Sent card sync to player {player_id}")
     
     # ゲーム終了判定
     max_score = max(room['scores'].values()) if room['scores'] else 0
@@ -732,7 +770,7 @@ def process_battle(room_id, round_number):
             'total_rounds': total_rounds_played,
             'battle_history': room['battle_history'],
             'game_end_reason': '2勝先取' if max_score >= 2 else '3ラウンド終了',
-            'room_id': room_id  # 🔥 追加: ルームIDも含める
+            'room_id': room_id
         }
         
         socketio.emit('game_finished', game_end_data, room=room_id)
@@ -742,7 +780,7 @@ def process_battle(room_id, round_number):
         print(f"Final winner: {final_winner}")
         print(f"Final scores: {room['scores']}")
         
-        # 🔥 ゲーム終了時に自動でカード状態をリセット（次回再戦用）
+        # ゲーム終了時に自動でカード状態をリセット（次回再戦用）
         auto_reset_cards_after_game(room_id)
         
     else:
@@ -870,6 +908,62 @@ def handle_reset_all_cards(data):
         }, room=player_id)
     
     print(f"Force reset {reset_count} cards in room {room_id}")
+
+@socketio.on('request_card_sync')
+def handle_card_sync_request(data):
+    """クライアントからのカード同期要求"""
+    room_id = data['room_id'].upper()
+    player_id = request.sid
+    
+    if room_id not in rooms:
+        emit('error', {'message': 'Room not found'})
+        return
+    
+    room = rooms[room_id]
+    
+    if player_id in room.get('player_cards', {}):
+        cards = room['player_cards'][player_id]
+        emit('sync_card_status', {
+            'cards': cards,
+            'message': 'Card status synchronized on request',
+            'timestamp': datetime.now().isoformat()
+        })
+        print(f"Manual card sync sent to player {player_id}")
+    else:
+        emit('error', {'message': 'No cards found for player'})
+
+@socketio.on('force_card_update')
+def handle_force_card_update(data):
+    """強制的にカード状態を更新"""
+    room_id = data['room_id'].upper()
+    card_id = data['card_id']
+    used_status = data['used']
+    player_id = request.sid
+    
+    if room_id not in rooms:
+        emit('error', {'message': 'Room not found'})
+        return
+    
+    room = rooms[room_id]
+    
+    if player_id in room.get('player_cards', {}):
+        cards = room['player_cards'][player_id]
+        for card in cards:
+            if str(card['id']) == str(card_id):
+                card['used'] = used_status
+                print(f"Force updated card {card['name']} to used={used_status} for player {player_id}")
+                
+                # 更新を全員に通知
+                socketio.emit('sync_card_status', {
+                    'cards': cards,
+                    'message': f'Card {card["name"]} force updated',
+                    'force_update': True
+                }, room=room_id)
+                break
+        else:
+            emit('error', {'message': f'Card ID {card_id} not found'})
+    else:
+        emit('error', {'message': 'No cards found for player'})
 
 @socketio.on('get_room_status')
 def get_room_status(data):
@@ -1054,13 +1148,13 @@ if __name__ == '__main__':
     local_ip = get_local_ip()
     port = 5000
     
-    print("🎮 Photo Battle Full Stack Server v2.1.0")
+    print("🎮 Photo Battle Full Stack Server v2.2.0")
     print("📋 Features:")
     print("   - HTML Pages: matching, card-generation, battle")
     print("   - Socket.IO: Real-time multiplayer")
     print("   - API: Card generation and image processing")
     print("   - Game Logic: Battle system with attribute effectiveness")
-    print("   - 🔥 USED状態リセット修正版")
+    print("   - 🔥 USED状態同期完全修正版")
     print("🚀 Server starting...")
     print("🌐 Access URLs:")
     print(f"   - 自分のPC: http://localhost:{port}/")
