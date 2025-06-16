@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Photo Battle - オンライン対戦</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            color: white;
+            padding: 40px;
+            text-align: center;
+        }
+
+        .header h1 {
+            font-size: 3em;
+            margin-bottom: 15px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .header p {
+            font-size: 1.3em;
+            opacity: 0.9;
+            margin-bottom: 10px;
+        }
+
+        .subtitle {
+            font-size: 1.1em;
+            opacity: 0.8;
+        }
+
+        .main-content {
+            padding: 50px 40px;
+            text-align: center;
+        }
+
+        .room-controls {
+            background: #f8f9fa;
+            padding: 40px;
+            border-radius: 20px;
+            margin: 30px 0;
+        }
+
+        .control-section {
+            margin: 30px 0;
+        }
+
+        .section-title {
+            font-size: 1.4em;
+            margin-bottom: 20px;
+            color: #333;
+            font-weight: bold;
+        }
+
+        .create-room-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 20px 40px;
+            border-radius: 15px;
+            font-size: 1.3em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            min-width: 250px;
+        }
+
+        .create-room-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.3);
+        }
+
+        .create-room-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .divider {
+            margin: 40px 0;
+            position: relative;
+            text-align: center;
+        }
+
+        .divider::before {
+            content: '';
+            position: absolute;
+            top: 50%;
+            left: 0;
+            right: 0;
+            height: 1px;
+            background: #ddd;
+        }
+
+        .divider span {
+            background: #f8f9fa;
+            padding: 0 20px;
+            color: #666;
+            font-size: 1.1em;
+        }
+
+        .room-input-section {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            align-items: center;
+            flex-wrap: wrap;
+        }
+
+        .room-id-input {
+            padding: 15px 25px;
+            border: 3px solid #ddd;
+            border-radius: 15px;
+            font-size: 1.2em;
+            text-align: center;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+            font-weight: bold;
+            min-width: 200px;
+            transition: border-color 0.3s;
+        }
+
+        .room-id-input:focus {
+            outline: none;
+            border-color: #4ecdc4;
+        }
+
+        .join-room-btn {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 15px;
+            font-size: 1.2em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+
+        .join-room-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+        }
+
+        .join-room-btn:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+            box-shadow: none;
+        }
+
+        .room-status {
+            background: white;
+            border: 3px solid #4ecdc4;
+            border-radius: 20px;
+            padding: 30px;
+            margin: 30px 0;
+            display: none;
+        }
+
+        .room-id-display {
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #333;
+            letter-spacing: 4px;
+            margin: 20px 0;
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 10px;
+        }
+
+        .players-status {
+            display: flex;
+            justify-content: center;
+            gap: 30px;
+            margin: 30px 0;
+            flex-wrap: wrap;
+        }
+
+        .player-slot {
+            background: #f8f9fa;
+            border: 3px dashed #ddd;
+            border-radius: 15px;
+            padding: 25px;
+            min-width: 180px;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+
+        .player-slot.occupied {
+            background: #e8f5e8;
+            border-color: #4ecdc4;
+            border-style: solid;
+        }
+
+        .player-avatar {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: #ddd;
+            margin: 0 auto 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+            transition: all 0.3s ease;
+        }
+
+        .player-slot.occupied .player-avatar {
+            background: #4ecdc4;
+            color: white;
+        }
+
+        .player-name {
+            font-size: 1.1em;
+            font-weight: bold;
+            margin: 10px 0;
+        }
+
+        .vs-divider {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.5em;
+            font-weight: bold;
+            color: #ff6b6b;
+            min-width: 80px;
+        }
+
+        .waiting-animation {
+            display: none;
+            color: #666;
+            font-style: italic;
+        }
+
+        .waiting-dots {
+            display: inline-block;
+        }
+
+        .waiting-dots::after {
+            content: '';
+            animation: waiting 2s infinite;
+        }
+
+        @keyframes waiting {
+            0%, 20% { content: '.'; }
+            40% { content: '..'; }
+            60% { content: '...'; }
+            80%, 100% { content: ''; }
+        }
+
+        .game-ready-section {
+            background: linear-gradient(45deg, #4ecdc4, #44a08d);
+            color: white;
+            padding: 25px;
+            border-radius: 15px;
+            margin-top: 30px;
+            display: none;
+        }
+
+        .ready-message {
+            font-size: 1.3em;
+            margin-bottom: 20px;
+            font-weight: bold;
+        }
+
+        .start-game-btn {
+            background: linear-gradient(45deg, #ff6b6b, #ee5a52);
+            color: white;
+            border: none;
+            padding: 20px 50px;
+            border-radius: 15px;
+            font-size: 1.4em;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            font-weight: bold;
+        }
+
+        .start-game-btn:hover {
+            transform: translateY(-3px);
+            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.4);
+        }
+
+        .message {
+            padding: 15px 25px;
+            border-radius: 10px;
+            margin: 20px 0;
+            display: none;
+            font-weight: bold;
+        }
+
+        .error-message {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        .success-message {
+            background: #4ecdc4;
+            color: white;
+        }
+
+        .info-message {
+            background: #ffa726;
+            color: white;
+        }
+
+        .connection-status {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            padding: 12px 20px;
+            border-radius: 25px;
+            font-size: 0.9em;
+            font-weight: bold;
+            z-index: 1000;
+        }
+
+        .connection-status.connected {
+            background: #4ecdc4;
+            color: white;
+        }
+
+        .connection-status.disconnected {
+            background: #ff6b6b;
+            color: white;
+        }
+
+        /* レスポンシブ */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 2.5em;
+            }
+            
+            .room-input-section {
+                flex-direction: column;
+            }
+            
+            .room-id-input {
+                min-width: 250px;
+            }
+            
+            .players-status {
+                flex-direction: column;
+                align-items: center;
+            }
+            
+            .vs-divider {
+                order: 2;
+                margin: 20px 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="connection-status disconnected">❌ 未接続</div>
+    
+    <div class="container">
+        <div class="header">
+            <h1>⚔️ Photo Battle</h1>
+            <p>写真から生成したカードで友達とバトル！</p>
+            <div class="subtitle">オンライン リアルタイム対戦</div>
+        </div>
+
+        <div class="main-content">
+            <!-- ルーム作成・参加画面 -->
+            <div id="roomSection">
+                <div class="room-controls">
+                    <div class="control-section">
+                        <div class="section-title">🏠 新しいバトルルームを作成</div>
+                        <button id="createRoomBtn" class="create-room-btn">
+                            ルームを作成して友達を待つ
+                        </button>
+                    </div>
+                    
+                    <div class="divider">
+                        <span>または</span>
+                    </div>
+                    
+                    <div class="control-section">
+                        <div class="section-title">🚪 友達のルームに参加</div>
+                        <div class="room-input-section">
+                            <input 
+                                type="text" 
+                                id="roomIdInput" 
+                                class="room-id-input" 
+                                placeholder="ROOM-ID"
+                                maxlength="8"
+                            >
+                            <button id="joinRoomBtn" class="join-room-btn">
+                                参加する
+                            </button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- ルーム状態表示 -->
+                <div id="roomStatus" class="room-status">
+                    <h3>🎮 バトルルーム</h3>
+                    <div id="roomIdDisplay" class="room-id-display"></div>
+                    
+                    <div class="players-status">
+                        <div class="player-slot" id="player1Slot">
+                            <div class="player-avatar">👤</div>
+                            <div class="player-name">プレイヤー1</div>
+                            <div class="waiting-animation">
+                                <span class="waiting-dots">待機中</span>
+                            </div>
+                        </div>
+                        
+                        <div class="vs-divider">VS</div>
+                        
+                        <div class="player-slot" id="player2Slot">
+                            <div class="player-avatar">👤</div>
+                            <div class="player-name">プレイヤー2</div>
+                            <div class="waiting-animation">
+                                <span class="waiting-dots">待機中</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- ゲーム開始可能状態 -->
+                    <div id="gameReadySection" class="game-ready-section">
+                        <div class="ready-message">🎉 両プレイヤー揃いました！</div>
+                        <div style="margin-bottom: 15px;">写真をアップロードしてカードを作成しましょう</div>
+                        <button id="startGameBtn" class="start-game-btn">
+                            🎴 カード作成画面へ
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- メッセージ表示 -->
+            <div id="errorMessage" class="message error-message"></div>
+            <div id="successMessage" class="message success-message"></div>
+            <div id="infoMessage" class="message info-message"></div>
+        </div>
+    </div>
+
+    <script>
+        // Socket.IO接続
+        const socket = io('http://localhost:5000');
+        
+        // DOM要素
+        const createRoomBtn = document.getElementById('createRoomBtn');
+        const joinRoomBtn = document.getElementById('joinRoomBtn');
+        const roomIdInput = document.getElementById('roomIdInput');
+        const roomStatus = document.getElementById('roomStatus');
+        const roomIdDisplay = document.getElementById('roomIdDisplay');
+        const player1Slot = document.getElementById('player1Slot');
+        const player2Slot = document.getElementById('player2Slot');
+        const gameReadySection = document.getElementById('gameReadySection');
+        const startGameBtn = document.getElementById('startGameBtn');
+        const connectionStatus = document.querySelector('.connection-status');
+
+        // 状態管理
+        let currentRoomId = null;
+        let playersCount = 0;
+
+        // Socket.IOイベント
+        socket.on('connect', () => {
+            updateConnectionStatus(true);
+            showSuccess('サーバーに接続しました');
+        });
+
+        socket.on('disconnect', () => {
+            updateConnectionStatus(false);
+            showError('サーバーから切断されました');
+        });
+
+        socket.on('room_created', (data) => {
+            currentRoomId = data.room_id;
+            showRoomStatus();
+            showSuccess(`ルーム ${data.room_id} を作成しました！友達にルームIDを共有してください`);
+            roomIdDisplay.textContent = data.room_id;
+            updatePlayersDisplay(1);
+        });
+
+        socket.on('room_joined', (data) => {
+            currentRoomId = data.room_id;
+            showRoomStatus();
+            showSuccess(`ルーム ${data.room_id} に参加しました！`);
+            roomIdDisplay.textContent = data.room_id;
+            updatePlayersDisplay(data.players_count);
+        });
+
+        socket.on('player_joined', (data) => {
+            showInfo('新しいプレイヤーが参加しました！');
+            updatePlayersDisplay(data.players_count);
+        });
+
+        socket.on('game_ready', (data) => {
+            showSuccess('両プレイヤー揃いました！ゲーム開始できます');
+            gameReadySection.style.display = 'block';
+        });
+
+        socket.on('error', (data) => {
+            showError(data.message);
+        });
+
+        // ボタンイベント
+        createRoomBtn.addEventListener('click', () => {
+            socket.emit('create_room');
+            createRoomBtn.disabled = true;
+            createRoomBtn.textContent = 'ルーム作成中...';
+        });
+
+        joinRoomBtn.addEventListener('click', () => {
+            const roomId = roomIdInput.value.trim().toUpperCase();
+            if (!roomId) {
+                showError('ルームIDを入力してください');
+                return;
+            }
+            socket.emit('join_room_request', { room_id: roomId });
+            joinRoomBtn.disabled = true;
+            joinRoomBtn.textContent = '参加中...';
+        });
+
+        startGameBtn.addEventListener('click', () => {
+            if (currentRoomId) {
+                // カード生成画面へ移動
+                window.location.href = `card-generation.html?mode=online&room=${currentRoomId}`;
+            }
+        });
+
+        // ルームIDの入力フォーマット
+        roomIdInput.addEventListener('input', (e) => {
+            e.target.value = e.target.value.toUpperCase();
+        });
+
+        // Enterキーでルーム参加
+        roomIdInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                joinRoomBtn.click();
+            }
+        });
+
+        // UI更新関数
+        function showRoomStatus() {
+            roomStatus.style.display = 'block';
+            createRoomBtn.disabled = false;
+            createRoomBtn.textContent = 'ルームを作成して友達を待つ';
+            joinRoomBtn.disabled = false;
+            joinRoomBtn.textContent = '参加する';
+        }
+
+        function updatePlayersDisplay(count) {
+            playersCount = count;
+            
+            // プレイヤー1スロット
+            if (count >= 1) {
+                player1Slot.classList.add('occupied');
+                player1Slot.querySelector('.waiting-animation').style.display = 'none';
+            } else {
+                player1Slot.classList.remove('occupied');
+                player1Slot.querySelector('.waiting-animation').style.display = 'block';
+            }
+            
+            // プレイヤー2スロット
+            if (count >= 2) {
+                player2Slot.classList.add('occupied');
+                player2Slot.querySelector('.waiting-animation').style.display = 'none';
+            } else {
+                player2Slot.classList.remove('occupied');
+                player2Slot.querySelector('.waiting-animation').style.display = 'block';
+            }
+        }
+
+        function updateConnectionStatus(connected) {
+            if (connected) {
+                connectionStatus.textContent = '✅ 接続済み';
+                connectionStatus.className = 'connection-status connected';
+            } else {
+                connectionStatus.textContent = '❌ 未接続';
+                connectionStatus.className = 'connection-status disconnected';
+            }
+        }
+
+        // メッセージ表示関数
+        function showError(message) {
+            showMessage('errorMessage', message);
+        }
+
+        function showSuccess(message) {
+            showMessage('successMessage', message);
+        }
+
+        function showInfo(message) {
+            showMessage('infoMessage', message);
+        }
+
+        function showMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = 'block';
+            
+            // 他のメッセージを隠す
+            ['errorMessage', 'successMessage', 'infoMessage'].forEach(id => {
+                if (id !== elementId) {
+                    document.getElementById(id).style.display = 'none';
+                }
+            });
+            
+            // 5秒後に自動で隠す
+            setTimeout(() => {
+                element.style.display = 'none';
+            }, 5000);
+        }
+
+        // 初期化
+        updateConnectionStatus(false);
+    </script>
+</body>
+</html>

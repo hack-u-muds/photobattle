@@ -373,12 +373,17 @@ class CardGenerator:
         # カードを保存
         card.save(output_path)
         
-        # カード情報を返す（ゲームロジック担当者向けの情報も含む）
+        # 属性相性を文字列キーの辞書に変換（JSON serializable）
+        safe_effectiveness = {}
+        for target_attr, multiplier in self.attribute_effectiveness[attribute].items():
+            safe_effectiveness[target_attr.value] = multiplier
+        
+        # カード情報を返す（JSON serializable）
         return {
             'image_path': image_path,
             'card_path': output_path,
             'attack_power': attack_power,
-            'attribute': attribute.value,
+            'attribute': attribute.value,  # Enumの値を文字列として取得
             'attribute_info': self.get_attribute_info(attribute),
             'features': features,
             'name': os.path.splitext(image_name)[0],
@@ -386,9 +391,9 @@ class CardGenerator:
             'game_data': {
                 'id': None,  # ゲームロジック側で設定
                 'attack_power': attack_power,
-                'attribute': attribute.value,
+                'attribute': attribute.value,  # 文字列として保存
                 'attribute_en': attribute.name.lower(),
-                'effectiveness_multipliers': self.attribute_effectiveness[attribute],
+                'effectiveness_multipliers': safe_effectiveness,  # 文字列キーの辞書
                 'used': False,  # 初期状態は未使用
                 'card_image_url': None  # API側で設定
             }
@@ -423,14 +428,16 @@ class CardGenerator:
         """
         属性の詳細情報を取得（ゲームロジック担当者向け）
         """
+        # 属性相性を文字列キーの辞書に変換
+        effectiveness_dict = {}
+        for target, multiplier in self.attribute_effectiveness[attribute].items():
+            effectiveness_dict[target.value] = multiplier
+        
         return {
             'name': attribute.value,
             'name_en': attribute.name.lower(),
             'color': self.attribute_colors[attribute],
-            'effectiveness': {
-                target.value: multiplier 
-                for target, multiplier in self.attribute_effectiveness[attribute].items()
-            }
+            'effectiveness': effectiveness_dict
         }
 
 
@@ -443,36 +450,30 @@ def main():
     
     # テスト用の画像パス
     test_images = [
-        "test_images/colorful.jpg",
-        "test_images/simple.jpg", 
-        "test_images/complex.jpg"
+        "test_images/fire_image.jpg",
+        "test_images/water_image.jpg", 
+        "test_images/earth_image.jpg"
     ]
     
+    # 存在する画像ファイルのみを使用
+    existing_images = [img for img in test_images if os.path.exists(img)]
+    
+    if len(existing_images) == 0:
+        print("テスト画像が見つかりません。test_card_generator.py を実行してください。")
+        return
+    
     # カードを生成
-    cards_info = generator.generate_cards_batch(test_images, "generated_cards")
+    cards_info = generator.generate_cards_batch(existing_images, "generated_cards")
     
-    # 結果をJSONファイルに保存（attribute_enumは除外）
-    cards_for_json = []
-    for card in cards_info:
-        card_copy = card.copy()
-        del card_copy['attribute_enum']  # Enumは JSON serializable ではないため除外
-        cards_for_json.append(card_copy)
-    
+    # 結果をJSONファイルに保存
     with open("generated_cards/cards_info.json", "w", encoding="utf-8") as f:
-        json.dump(cards_for_json, f, ensure_ascii=False, indent=2)
+        json.dump(cards_info, f, ensure_ascii=False, indent=2)
     
     print(f"\n{len(cards_info)}枚のカードが生成されました！")
     for card in cards_info:
         print(f"- {card['name']}: 攻撃力 {card['attack_power']}, 属性 {card['attribute']}")
     
-    # バトルシミュレーション
-    if len(cards_info) >= 2:
-        print("\n=== バトルシミュレーション ===")
-        battle_result = generator.simulate_battle(cards_info[0], cards_info[1])
-        print(f"{battle_result['card1']['name']} vs {battle_result['card2']['name']}")
-        print(f"  {battle_result['card1']['name']}: {battle_result['card1']['base_attack']} → {battle_result['card1']['effective_attack']} ({battle_result['card1']['attribute']})")
-        print(f"  {battle_result['card2']['name']}: {battle_result['card2']['base_attack']} → {battle_result['card2']['effective_attack']} ({battle_result['card2']['attribute']})")
-        print(f"  結果: {battle_result['result']}")
+    print("\n✅ JSON serialization test passed!")
 
 
 if __name__ == "__main__":
