@@ -776,153 +776,133 @@
             }, 3000);
         }
 
-        function getMyCard(data) {
-            return data.player1.player_id === socket.id ? data.player1.card : data.player2.card;
-        }
+        // battle.html の修正が必要な関数群
 
-        function getOpponentCard(data) {
-            return data.player1.player_id === socket.id ? data.player2.card : data.player1.card;
-        }
+function getMyCard(data) {
+    // data.players オブジェクトから自分のプレイヤーデータを取得
+    const myPlayerData = Object.values(data.players).find(p => p.player_id === socket.id);
+    return myPlayerData ? myPlayerData.card : null;
+}
 
-        function getMyCardPower(data) {
-            return data.player1.player_id === socket.id ? data.player1.power : data.player2.power;
-        }
+function getOpponentCard(data) {
+    // data.players オブジェクトから相手のプレイヤーデータを取得
+    const opponentData = Object.values(data.players).find(p => p.player_id !== socket.id);
+    return opponentData ? opponentData.card : null;
+}
 
-        function getOpponentCardPower(data) {
-            return data.player1.player_id === socket.id ? data.player2.power : data.player1.power;
-        }
+function getMyCardPower(data) {
+    // 正しいプロパティパスでバトルパワーを取得
+    const myPlayerData = Object.values(data.players).find(p => p.player_id === socket.id);
+    return myPlayerData ? myPlayerData.battle_power.effective_power : 0;
+}
 
-        function displayDamageCalculation(data) {
-            const myCard = getMyCard(data);
-            const opponentCard = getOpponentCard(data);
-            const myPower = getMyCardPower(data);
-            const opponentPower = getOpponentCardPower(data);
+function getOpponentCardPower(data) {
+    // 正しいプロパティパスでバトルパワーを取得
+    const opponentData = Object.values(data.players).find(p => p.player_id !== socket.id);
+    return opponentData ? opponentData.battle_power.effective_power : 0;
+}
 
-            const myEffectiveness = getEffectiveness(myCard.attribute, opponentCard.attribute);
-            const opponentEffectiveness = getEffectiveness(opponentCard.attribute, myCard.attribute);
+function displayBattleResult(data) {
+    console.log('=== Battle Result Debug ===');
+    console.log('Full data:', data);
+    console.log('Players:', data.players);
+    console.log('My socket ID:', socket.id);
+    
+    waitingScreen.style.display = 'none';
+    battleAnimation.style.display = 'block';
+    phaseIndicator.textContent = 'バトル中';
 
-            damageCalculation.innerHTML = `
-                <h4>ダメージ計算</h4>
-                <div class="effectiveness ${myEffectiveness.class}">
-                    あなた: ${myCard.attribute} vs ${opponentCard.attribute} = ${myEffectiveness.text}
-                </div>
-                <div>あなたの攻撃力: ${myCard.attack_power} → ${myPower}</div>
-                <div class="effectiveness ${opponentEffectiveness.class}">
-                    相手: ${opponentCard.attribute} vs ${myCard.attribute} = ${opponentEffectiveness.text}
-                </div>
-                <div>相手の攻撃力: ${opponentCard.attack_power} → ${opponentPower}</div>
-            `;
-        }
+    const myCard = getMyCard(data);
+    const opponentCard = getOpponentCard(data);
+    const myPower = getMyCardPower(data);
+    const opponentPower = getOpponentCardPower(data);
+    
+    console.log('My card:', myCard);
+    console.log('Opponent card:', opponentCard);
+    console.log('My power:', myPower);
+    console.log('Opponent power:', opponentPower);
 
-        function getEffectiveness(attackerAttr, defenderAttr) {
-            const effectiveness = {
-                '火': { '土': 'advantage', '水': 'disadvantage', '火': 'normal' },
-                '水': { '火': 'advantage', '土': 'disadvantage', '水': 'normal' },
-                '土': { '水': 'advantage', '火': 'disadvantage', '土': 'normal' }
-            };
+    if (!myCard || !opponentCard) {
+        console.error('Card data missing:', { myCard, opponentCard });
+        showError('カードデータが不正です');
+        return;
+    }
 
-            const result = effectiveness[attackerAttr]?.[defenderAttr] || 'normal';
-            const text = {
-                'advantage': '有利 (×1.2)',
-                'disadvantage': '不利 (×0.8)',
-                'normal': '等倍 (×1.0)'
-            };
+    // バトルカードを表示
+    battleCards.innerHTML = `
+        <div class="battle-card ${data.winner === socket.id ? 'winner' : 'loser'}">
+            <h4>あなたのカード</h4>
+            <img src="${myCard.card_image_url}" class="card-image">
+            <h5>${myCard.name}</h5>
+            <p>攻撃力: ${myPower}</p>
+        </div>
+        
+        <div class="vs-animation">VS</div>
+        
+        <div class="battle-card ${data.winner !== socket.id && data.winner ? 'winner' : 'loser'}">
+            <h4>相手のカード</h4>
+            <img src="${opponentCard.card_image_url}" class="card-image">
+            <h5>${opponentCard.name}</h5>
+            <p>攻撃力: ${opponentPower}</p>
+        </div>
+    `;
 
-            return {
-                class: result,
-                text: text[result]
-            };
-        }
+    // ダメージ計算を表示
+    displayDamageCalculation(data);
 
-        function updateScores(newScores) {
-            // スコアオブジェクトのキーがプレイヤーIDになっているので、適切に表示
-            scores = newScores;
-            const myScore = newScores[socket.id] || 0;
-            const opponentScore = Object.values(newScores).find(score => score !== myScore) || 0;
-            
-            player1Score.textContent = myScore;
-            player2Score.textContent = opponentScore;
-        }
+    // スコアを更新
+    updateScores(data.scores);
 
-        function showBattleResult(data) {
-            battleAnimation.style.display = 'none';
-            battleResult.style.display = 'block';
-            phaseIndicator.textContent = 'ラウンド結果';
-            phaseIndicator.className = 'phase-indicator result';
+    // 3秒後に結果画面
+    setTimeout(() => {
+        showBattleResult(data);
+    }, 3000);
+}
 
-            // 勝敗表示
-            if (!data.winner) {
-                roundWinner.textContent = '引き分け！';
-                roundWinner.className = 'round-winner draw';
-            } else if (data.winner === socket.id) {
-                roundWinner.textContent = 'あなたの勝利！';
-                roundWinner.className = 'round-winner victory';
-            } else {
-                roundWinner.textContent = '相手の勝利...';
-                roundWinner.className = 'round-winner defeat';
-            }
+function confirmCardSelection() {
+    if (!selectedCardId) {
+        showError('カードを選択してください');
+        return;
+    }
 
-            // 使用済みカードをマーク
-            markCardAsUsed(selectedCardId);
-        }
+    console.log('=== Card Selection Debug ===');
+    console.log('Room ID:', roomId);
+    console.log('Selected Card ID:', selectedCardId);
+    console.log('Socket ID:', socket.id);
+    console.log('Available cards:', myCards);
 
-        function markCardAsUsed(cardId) {
-            const card = myCards.find(c => c.id === cardId);
-            if (card) {
-                card.used = true;
-            }
-        }
+    // カード選択をサーバーに送信
+    socket.emit('card_selected', {
+        room_id: roomId,
+        card_id: selectedCardId
+    });
 
-        function nextRound() {
-            selectedCardId = null;
-            battleResult.style.display = 'none';
-            cardSelection.style.display = 'block';
-            phaseIndicator.textContent = 'カード選択中';
-            phaseIndicator.className = 'phase-indicator selection';
-            confirmBtn.disabled = true;
+    // 待機画面に切り替え
+    showWaitingScreen();
+}
 
-            // カード表示を更新
-            displayPlayerCards();
-        }
+// Socket.IOイベントにデバッグを追加
+socket.on('battle_result', (data) => {
+    console.log('=== Received battle_result ===');
+    console.log('Data:', data);
+    displayBattleResult(data);
+});
 
-        function prepareNextRound(round) {
-            currentRound = round;
-            roundNumber.textContent = `Round ${round}`;
-            nextRound();
-        }
+socket.on('error', (data) => {
+    console.error('=== Socket Error ===');
+    console.error('Error:', data.message);
+    showError(data.message);
+});
 
-        function displayGameEnd(data) {
-            battleResult.style.display = 'none';
-            gameEnd.style.display = 'block';
-
-            if (data.winner === socket.id) {
-                finalResult.textContent = '🎉 ゲーム勝利！';
-                finalResult.className = 'final-result victory';
-            } else {
-                finalResult.textContent = '😢 ゲーム敗北...';
-                finalResult.className = 'final-result defeat';
-            }
-        }
-
-        function showError(message) {
-            errorMessage.textContent = message;
-            errorMessage.style.display = 'block';
-            setTimeout(() => {
-                errorMessage.style.display = 'none';
-            }, 5000);
-        }
-
-        function playAgain() {
-            window.location.href = 'matching.html';
-        }
-
-        function goHome() {
-            window.location.href = 'matching.html';
-        }
-
-        function goBack() {
-            window.location.href = `card-generation.html?room=${roomId}`;
-        }
+// さらにデバッグ用の関数を追加
+socket.on('connect', () => {
+    console.log('=== Socket Connected ===');
+    console.log('Socket ID:', socket.id);
+    if (roomId) {
+        console.log('Rejoining room:', roomId);
+        socket.emit('rejoin_room', { room_id: roomId });
+    }
+});
     </script>
 </body>
 </html>
