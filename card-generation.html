@@ -578,28 +578,22 @@
     </div>
 
     <script>
-        // ★★★ Wi-Fi対応 Socket.IO設定（ここが変更点）★★★
-        
+        // 🔥 既存UIを維持したまま個別・一括アップロード対応のJavaScript
+
         // URL パラメータから設定を取得
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room');
         
-        // 自動的にサーバーURLを決定する関数
         function getServerUrl() {
-            // 現在のページのホストとポートを取得
             const currentHost = window.location.hostname;
             const currentPort = window.location.port;
             
-            // もしポート番号が指定されていれば、同じホスト・ポートを使用
             if (currentPort) {
                 return `http://${currentHost}:${currentPort}`;
             }
-            
-            // ポート指定がない場合は現在のホストをそのまま使用
             return `${window.location.protocol}//${currentHost}`;
         }
 
-        // Socket.IO接続（自動設定）
         const serverUrl = getServerUrl();
         console.log('🔌 Connecting to server:', serverUrl);
 
@@ -609,26 +603,53 @@
             reconnectionDelay: 1000,
             reconnectionAttempts: 5,
             timeout: 20000,
-            // 接続方式のフォールバック（Wi-Fi環境で安定）
             transports: ['websocket', 'polling']
         });
 
-        // 接続状態の管理
-        let connectionRetryCount = 0;
-        const maxRetries = 3;
+        // DOM要素
+        const roomIdDisplay = document.getElementById('roomIdDisplay');
+        const opponentStatus = document.getElementById('opponentStatus');
+        const uploadSection = document.getElementById('uploadSection');
+        const fileInput = document.getElementById('fileInput');
+        const previewSection = document.getElementById('previewSection');
+        const generateBtn = document.getElementById('generateBtn');
+        const loadingSection = document.getElementById('loadingSection');
+        const resultsSection = document.getElementById('resultsSection');
+        const cardsGrid = document.getElementById('cardsGrid');
+        const waitingMessage = document.getElementById('waitingMessage');
+        const readyMessage = document.getElementById('readyMessage');
+        const readyForBattleBtn = document.getElementById('readyForBattleBtn');
+        const errorMessage = document.getElementById('errorMessage');
+        const successMessage = document.getElementById('successMessage');
+
+        // 🔥 改善された状態管理
+        let selectedFiles = [];
+        let generatedCards = null;
+        let sessionId = null;
+        let isReady = false;
+
+        // 初期化
+        initializePage();
+
+        function initializePage() {
+            if (roomId) {
+                roomIdDisplay.textContent = roomId;
+            }
+
+            setupSocketEvents();
+            setupFileInputs();
+            setupDragAndDrop();
+            updateGenerateButton();
+        }
 
         function setupSocketEvents() {
             socket.on('connect', () => {
                 console.log('✅ Socket Connected');
                 console.log('🆔 Socket ID:', socket.id);
                 console.log('🌐 Server URL:', serverUrl);
-                connectionRetryCount = 0; // リセット
-                
-                // 接続成功の視覚的フィードバック
                 showSuccess('サーバーに接続しました');
                 
                 if (roomId) {
-                    console.log('🏠 Rejoining room:', roomId);
                     setTimeout(() => {
                         socket.emit('rejoin_room', { room_id: roomId });
                     }, 500);
@@ -636,36 +657,16 @@
             });
 
             socket.on('disconnect', (reason) => {
-                console.log('❌ Socket Disconnected');
-                console.log('📝 Reason:', reason);
-                
+                console.log('❌ Socket Disconnected:', reason);
                 showError('サーバーから切断されました');
-                
-                if (reason === 'io server disconnect') {
-                    // サーバーから切断された場合、手動で再接続
-                    socket.connect();
-                }
             });
 
             socket.on('reconnect', (attemptNumber) => {
-                console.log('🔄 Socket Reconnected');
-                console.log('🎯 Attempt:', attemptNumber);
-                
+                console.log('🔄 Socket Reconnected:', attemptNumber);
                 showSuccess('サーバーに再接続しました');
                 
                 if (roomId) {
                     socket.emit('rejoin_room', { room_id: roomId });
-                }
-            });
-
-            socket.on('connect_error', (error) => {
-                console.error('🚫 Connection Error');
-                console.error('❗ Error:', error);
-                console.error('🌐 Attempted URL:', serverUrl);
-                connectionRetryCount++;
-                
-                if (connectionRetryCount >= maxRetries) {
-                    showError(`サーバーに接続できません。URLを確認してください: ${serverUrl}`);
                 }
             });
 
@@ -692,50 +693,31 @@
                 showError(data.message);
             });
         }
-        
-        // ★★★ 変更点ここまで ★★★
-        
-        // DOM要素
-        const roomIdDisplay = document.getElementById('roomIdDisplay');
-        const opponentStatus = document.getElementById('opponentStatus');
-        const uploadSection = document.getElementById('uploadSection');
-        const fileInput = document.getElementById('fileInput');
-        const previewSection = document.getElementById('previewSection');
-        const generateBtn = document.getElementById('generateBtn');
-        const loadingSection = document.getElementById('loadingSection');
-        const resultsSection = document.getElementById('resultsSection');
-        const cardsGrid = document.getElementById('cardsGrid');
-        const waitingMessage = document.getElementById('waitingMessage');
-        const readyMessage = document.getElementById('readyMessage');
-        const readyForBattleBtn = document.getElementById('readyForBattleBtn');
-        const errorMessage = document.getElementById('errorMessage');
-        const successMessage = document.getElementById('successMessage');
 
-        // 状態管理
-        let selectedFiles = [];
-        let generatedCards = null;
-        let sessionId = null;
-        let isReady = false;
-
-        // 初期化
-        initializePage();
-
-        function initializePage() {
-            // ルーム情報表示
-            if (roomId) {
-                roomIdDisplay.textContent = roomId;
-            }
-
-            // Socket.IOイベント設定
-            setupSocketEvents();
-
-            // イベントリスナー設定
+        // 🔥 ファイル入力の設定（拡張版）
+        function setupFileInputs() {
             fileInput.addEventListener('change', handleFileSelect);
-            generateBtn.addEventListener('click', generateCards);
-            readyForBattleBtn.addEventListener('click', readyForBattle);
+            
+            // 🔥 新機能：ファイル入力属性を動的に変更
+            updateFileInputAttributes();
+        }
 
-            // ドラッグ&ドロップ設定
-            setupDragAndDrop();
+        // 🔥 ファイル入力属性の動的更新
+        function updateFileInputAttributes() {
+            if (selectedFiles.length === 0) {
+                // 何も選択されていない：一括選択を許可
+                fileInput.multiple = true;
+                fileInput.removeAttribute('capture');
+                console.log('📁 Mode: Bulk selection enabled');
+            } else if (selectedFiles.length < 3) {
+                // 1-2枚選択済み：個別追加モード
+                fileInput.multiple = false;
+                fileInput.setAttribute('capture', 'environment'); // カメラも利用可能
+                console.log('📷 Mode: Single addition enabled');
+            } else {
+                // 3枚選択済み：選択を無効化
+                console.log('🚫 Mode: Selection disabled (3 files)');
+            }
         }
 
         function setupDragAndDrop() {
@@ -754,16 +736,22 @@
                 e.preventDefault();
                 uploadArea.classList.remove('dragover');
                 const files = Array.from(e.dataTransfer.files);
-                handleFiles(files);
+                handleFiles(files, 'smart');
             });
         }
 
+        // 🔥 スマートファイル選択処理
         function handleFileSelect(event) {
             const files = Array.from(event.target.files);
-            handleFiles(files);
+            const mode = selectedFiles.length === 0 ? 'bulk' : 'add';
+            handleFiles(files, mode);
+            
+            // 入力をリセットして同じファイルを再選択可能に
+            event.target.value = '';
         }
 
-        function handleFiles(files) {
+        // 🔥 統合ファイル処理関数
+        function handleFiles(files, mode = 'smart') {
             const imageFiles = files.filter(file => file.type.startsWith('image/'));
             
             if (imageFiles.length === 0) {
@@ -771,14 +759,55 @@
                 return;
             }
 
-            if (imageFiles.length > 3) {
-                showError('最大3枚まで選択できます');
-                return;
+            // スマートモード：現在の状況に応じて最適な処理を選択
+            if (mode === 'smart') {
+                if (selectedFiles.length === 0) {
+                    mode = 'bulk';
+                } else {
+                    mode = 'add';
+                }
             }
 
-            selectedFiles = imageFiles;
+            if (mode === 'bulk') {
+                // 一括選択：3枚まで一度に選択
+                if (imageFiles.length > 3) {
+                    selectedFiles = imageFiles.slice(0, 3);
+                    showError('3枚まで選択できます（最初の3枚を使用）');
+                } else {
+                    selectedFiles = imageFiles;
+                }
+                console.log(`📁 Bulk selection: ${selectedFiles.length} files`);
+                
+            } else if (mode === 'add') {
+                // 個別追加：現在のファイルに1枚ずつ追加
+                const remainingSlots = 3 - selectedFiles.length;
+                
+                if (remainingSlots === 0) {
+                    showError('既に3枚選択されています');
+                    return;
+                }
+                
+                // 1枚ずつ追加（個別選択時）
+                const fileToAdd = imageFiles[0];
+                selectedFiles.push(fileToAdd);
+                
+                console.log(`📷 Single addition: Added "${fileToAdd.name}", total: ${selectedFiles.length}`);
+                
+                if (imageFiles.length > 1) {
+                    showError('1枚ずつ追加してください');
+                }
+            }
+
             updatePreview();
             updateGenerateButton();
+            updateFileInputAttributes(); // 🔥 入力属性を更新
+            
+            // 成功メッセージ
+            if (selectedFiles.length === 3) {
+                showSuccess('3枚の写真が揃いました！カードを生成できます');
+            } else {
+                showSuccess(`${selectedFiles.length}枚選択しました（あと${3 - selectedFiles.length}枚）`);
+            }
         }
 
         function updatePreview() {
@@ -791,6 +820,7 @@
                 const img = document.createElement('img');
                 img.className = 'preview-image';
                 img.src = URL.createObjectURL(file);
+                img.alt = `Preview ${index + 1}`;
                 
                 const removeBtn = document.createElement('button');
                 removeBtn.className = 'remove-btn';
@@ -798,9 +828,10 @@
                 removeBtn.onclick = () => removeFile(index);
                 
                 const fileName = document.createElement('p');
-                fileName.textContent = file.name;
                 fileName.style.fontSize = '0.8em';
                 fileName.style.color = '#666';
+                fileName.style.marginTop = '5px';
+                fileName.textContent = file.name;
                 
                 previewCard.appendChild(img);
                 previewCard.appendChild(removeBtn);
@@ -809,17 +840,30 @@
             });
         }
 
+        // 🔥 ファイル削除（改善版）
         function removeFile(index) {
+            if (index < 0 || index >= selectedFiles.length) {
+                return;
+            }
+
+            const removedFile = selectedFiles[index];
             selectedFiles.splice(index, 1);
+            
+            console.log(`🗑️ Removed file: "${removedFile.name}", remaining: ${selectedFiles.length}`);
+            
             updatePreview();
             updateGenerateButton();
+            updateFileInputAttributes(); // 🔥 入力属性を更新
+            
+            showSuccess(`"${removedFile.name}" を削除しました`);
         }
 
         function updateGenerateButton() {
-            generateBtn.disabled = selectedFiles.length !== 3;
             if (selectedFiles.length === 3) {
+                generateBtn.disabled = false;
                 generateBtn.textContent = '🎴 カードを生成する';
             } else {
+                generateBtn.disabled = true;
                 generateBtn.textContent = `🎴 あと${3 - selectedFiles.length}枚必要です`;
             }
         }
@@ -839,6 +883,8 @@
                 selectedFiles.forEach(file => {
                     formData.append('images', file);
                 });
+
+                console.log('🚀 Generating cards with files:', selectedFiles.map(f => f.name));
 
                 const response = await fetch('/api/cards/generate', {
                     method: 'POST',
@@ -909,9 +955,8 @@
                 cardsGrid.appendChild(cardElement);
             });
 
-            // 相手の状態に応じてメッセージ表示
             if (opponentStatus.textContent.includes('準備完了')) {
-                showWaitingMessage();
+                showReadyMessage();
             } else {
                 showWaitingMessage();
             }
@@ -944,26 +989,11 @@
             console.log('🎯 Ready For Battle Debug');
             console.log('Room ID:', roomId);
             console.log('Generated Cards:', generatedCards);
-            console.log('Cards count:', generatedCards.length);
-            console.log('Socket connected:', socket.connected);
-            console.log('Socket ID:', socket.id);
-
-            // カードデータの詳細をログ出力
-            generatedCards.forEach((card, index) => {
-                console.log(`Card ${index + 1}:`, {
-                    id: card.id,
-                    idType: typeof card.id,
-                    name: card.name,
-                    attack_power: card.attack_power,
-                    attribute: card.attribute
-                });
-            });
 
             isReady = true;
             readyForBattleBtn.disabled = true;
             readyForBattleBtn.textContent = '準備完了しました...';
 
-            // Socket.IOで相手に準備完了を通知
             if (socket && socket.connected && roomId) {
                 console.log('🚀 Sending cards_ready event...');
                 socket.emit('cards_ready', {
@@ -973,9 +1003,6 @@
                 console.log('✅ cards_ready event sent');
             } else {
                 console.error('❌ Socket not connected or roomId missing');
-                console.error('Socket:', socket);
-                console.error('Socket connected:', socket?.connected);
-                console.error('Room ID:', roomId);
                 showError('接続エラーが発生しました。ページを再読み込みしてください。');
                 return;
             }
@@ -999,6 +1026,7 @@
             
             previewSection.innerHTML = '';
             updateGenerateButton();
+            updateFileInputAttributes(); // 🔥 入力属性をリセット
             hideMessages();
             
             readyForBattleBtn.disabled = false;
@@ -1028,10 +1056,13 @@
             successMessage.style.display = 'none';
         }
 
+        // イベントリスナー設定
+        generateBtn.addEventListener('click', generateCards);
+        readyForBattleBtn.addEventListener('click', readyForBattle);
+
         // 初期化
         updateGenerateButton();
-        
-        // ページ読み込み時に接続状態を表示
+
         window.addEventListener('load', () => {
             console.log('📱 Page loaded, server URL:', serverUrl);
         });
