@@ -292,7 +292,6 @@ class CardGenerator:
                 font_tiny = ImageFont.load_default()
                 
         except Exception as e:
-            print(f"フォント読み込みエラー: {e}")
             # デフォルトフォントを使用
             font_large = ImageFont.load_default()
             font_medium = ImageFont.load_default()
@@ -300,7 +299,7 @@ class CardGenerator:
             font_tiny = ImageFont.load_default()
         
         # 属性名をヘッダーに表示（英語で代用）
-        attribute_text = f"Type: {attribute.name}"  # 日本語の代わりに英語を使用
+        attribute_text = f"Type: {attribute.name}"
         draw.text((10, 8), attribute_text, fill=(255, 255, 255), font=font_small)
         
         # 攻撃力を表示（英語）
@@ -416,10 +415,7 @@ class CardGenerator:
                 card_info = self.generate_card(image_path, output_path)
                 cards_info.append(card_info)
                 
-                print(f"カード生成完了: {output_filename} (攻撃力: {card_info['attack_power']}, 属性: {card_info['attribute']})")
-                
             except Exception as e:
-                print(f"エラー: {image_path} の処理中にエラーが発生しました: {e}")
                 continue
         
         return cards_info
@@ -459,7 +455,6 @@ def main():
     existing_images = [img for img in test_images if os.path.exists(img)]
     
     if len(existing_images) == 0:
-        print("テスト画像が見つかりません。test_card_generator.py を実行してください。")
         return
     
     # カードを生成
@@ -468,12 +463,6 @@ def main():
     # 結果をJSONファイルに保存
     with open("generated_cards/cards_info.json", "w", encoding="utf-8") as f:
         json.dump(cards_info, f, ensure_ascii=False, indent=2)
-    
-    print(f"\n{len(cards_info)}枚のカードが生成されました！")
-    for card in cards_info:
-        print(f"- {card['name']}: 攻撃力 {card['attack_power']}, 属性 {card['attribute']}")
-    
-    print("\n✅ JSON serialization test passed!")
 
 
 if __name__ == "__main__":

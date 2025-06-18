@@ -347,7 +347,6 @@
             color: white;
         }
 
-        /* レスポンシブ */
         @media (max-width: 768px) {
             .header h1 {
                 font-size: 2.5em;
@@ -384,7 +383,6 @@
         </div>
 
         <div class="main-content">
-            <!-- ルーム作成・参加画面 -->
             <div id="roomSection">
                 <div class="room-controls">
                     <div class="control-section">
@@ -415,7 +413,6 @@
                     </div>
                 </div>
 
-                <!-- ルーム状態表示 -->
                 <div id="roomStatus" class="room-status">
                     <h3>🎮 バトルルーム</h3>
                     <div id="roomIdDisplay" class="room-id-display"></div>
@@ -440,7 +437,6 @@
                         </div>
                     </div>
 
-                    <!-- ゲーム開始可能状態 -->
                     <div id="gameReadySection" class="game-ready-section">
                         <div class="ready-message">🎉 両プレイヤー揃いました！</div>
                         <div style="margin-bottom: 15px;">写真をアップロードしてカードを作成しましょう</div>
@@ -451,7 +447,6 @@
                 </div>
             </div>
 
-            <!-- メッセージ表示 -->
             <div id="errorMessage" class="message error-message"></div>
             <div id="successMessage" class="message success-message"></div>
             <div id="infoMessage" class="message info-message"></div>
@@ -459,38 +454,26 @@
     </div>
 
     <script>
-        // ★★★ Wi-Fi対応 Socket.IO設定（ここが変更点）★★★
-        
-        // 自動的にサーバーURLを決定する関数
         function getServerUrl() {
-            // 現在のページのホストとポートを取得
             const currentHost = window.location.hostname;
             const currentPort = window.location.port;
             
-            // もしポート番号が指定されていれば、同じホスト・ポートを使用
             if (currentPort) {
                 return `http://${currentHost}:${currentPort}`;
             }
             
-            // ポート指定がない場合は現在のホストをそのまま使用
             return `${window.location.protocol}//${currentHost}`;
         }
 
-        // Socket.IO接続（自動設定）
         const serverUrl = getServerUrl();
-        console.log('🔌 Connecting to server:', serverUrl);
-
         const socket = io(serverUrl, {
             autoConnect: true,
             reconnection: true,
             reconnectionDelay: 1000,
             reconnectionAttempts: 5,
             timeout: 20000,
-            // 接続方式のフォールバック（Wi-Fi環境で安定）
             transports: ['websocket', 'polling']
         });
-        
-        // ★★★ 変更点ここまで ★★★
         
         // DOM要素
         const createRoomBtn = document.getElementById('createRoomBtn');
@@ -504,30 +487,21 @@
         const startGameBtn = document.getElementById('startGameBtn');
         const connectionStatus = document.querySelector('.connection-status');
 
-        // 状態管理
         let currentRoomId = null;
         let playersCount = 0;
 
         // Socket.IOイベント
         socket.on('connect', () => {
-            console.log('✅ Socket Connected');
-            console.log('🆔 Socket ID:', socket.id);
-            console.log('🌐 Server URL:', serverUrl);
             updateConnectionStatus(true);
             showSuccess('サーバーに接続しました');
         });
 
         socket.on('disconnect', (reason) => {
-            console.log('❌ Socket Disconnected');
-            console.log('📝 Reason:', reason);
             updateConnectionStatus(false);
             showError('サーバーから切断されました');
         });
 
         socket.on('connect_error', (error) => {
-            console.error('🚫 Connection Error');
-            console.error('❗ Error:', error);
-            console.error('🌐 Attempted URL:', serverUrl);
             updateConnectionStatus(false);
             showError(`サーバーに接続できません: ${serverUrl}`);
         });
@@ -582,24 +556,20 @@
 
         startGameBtn.addEventListener('click', () => {
             if (currentRoomId) {
-                // カード生成画面へ移動
                 window.location.href = `card-generation.html?mode=online&room=${currentRoomId}`;
             }
         });
 
-        // ルームIDの入力フォーマット
         roomIdInput.addEventListener('input', (e) => {
             e.target.value = e.target.value.toUpperCase();
         });
 
-        // Enterキーでルーム参加
         roomIdInput.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') {
                 joinRoomBtn.click();
             }
         });
 
-        // UI更新関数
         function showRoomStatus() {
             roomStatus.style.display = 'block';
             createRoomBtn.disabled = false;
@@ -611,7 +581,6 @@
         function updatePlayersDisplay(count) {
             playersCount = count;
             
-            // プレイヤー1スロット
             if (count >= 1) {
                 player1Slot.classList.add('occupied');
                 player1Slot.querySelector('.waiting-animation').style.display = 'none';
@@ -620,7 +589,6 @@
                 player1Slot.querySelector('.waiting-animation').style.display = 'block';
             }
             
-            // プレイヤー2スロット
             if (count >= 2) {
                 player2Slot.classList.add('occupied');
                 player2Slot.querySelector('.waiting-animation').style.display = 'none';
@@ -640,7 +608,6 @@
             }
         }
 
-        // メッセージ表示関数
         function showError(message) {
             showMessage('errorMessage', message);
         }
@@ -658,26 +625,18 @@
             element.textContent = message;
             element.style.display = 'block';
             
-            // 他のメッセージを隠す
             ['errorMessage', 'successMessage', 'infoMessage'].forEach(id => {
                 if (id !== elementId) {
                     document.getElementById(id).style.display = 'none';
                 }
             });
             
-            // 5秒後に自動で隠す
             setTimeout(() => {
                 element.style.display = 'none';
             }, 5000);
         }
 
-        // 初期化
         updateConnectionStatus(false);
-        
-        // ページ読み込み時に接続状態を表示
-        window.addEventListener('load', () => {
-            console.log('📱 Page loaded, server URL:', serverUrl);
-        });
     </script>
 </body>
 </html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Photo Battle - バトル（同期修正版）</title>
+    <title>Photo Battle - バトル</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         * {
@@ -461,29 +461,6 @@
             font-weight: bold;
         }
 
-        /* 同期修正用のボタン */
-        .sync-controls {
-            position: fixed;
-            bottom: 20px;
-            right: 20px;
-            background: rgba(0,0,0,0.8);
-            color: white;
-            padding: 10px;
-            border-radius: 10px;
-            font-size: 12px;
-        }
-
-        .sync-btn {
-            background: #4ecdc4;
-            color: white;
-            border: none;
-            padding: 5px 10px;
-            border-radius: 5px;
-            margin: 2px;
-            cursor: pointer;
-            font-size: 10px;
-        }
-
         @media (max-width: 768px) {
             .battle-cards {
                 flex-direction: column;
@@ -501,28 +478,16 @@
             .score-board {
                 padding: 15px 20px;
             }
-
-            .sync-controls {
-                bottom: 10px;
-                right: 10px;
-            }
         }
     </style>
 </head>
 <body>
-    <!-- 🔧 同期修正用コントロール -->
-    <div class="sync-controls">
-        <div style="margin-bottom: 5px;">🔧 Sync Fix</div>
-        <button class="sync-btn" onclick="requestCardSync()">Sync Cards</button>
-        <button class="sync-btn" onclick="forceResetAllCards()">Reset All</button>
-    </div>
-
     <div class="container">
         <div class="header">
             <button class="back-btn" onclick="goBack()">← 戻る</button>
             <div class="room-info" id="roomInfo">ルーム: <span id="roomIdDisplay"></span></div>
             
-            <h1>⚔️ Photo Battle (Sync Fixed)</h1>
+            <h1>⚔️ Photo Battle</h1>
         </div>
 
         <div class="score-board">
@@ -593,7 +558,6 @@
     </div>
 
     <script>
-        // URL パラメータから設定を取得
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room');
         const sessionId = urlParams.get('session');
@@ -609,8 +573,6 @@
         }
 
         const serverUrl = getServerUrl();
-        console.log('🔌 Connecting to server:', serverUrl);
-
         const socket = io(serverUrl, {
             autoConnect: true,
             reconnection: true,
@@ -620,7 +582,6 @@
             transports: ['websocket', 'polling']
         });
 
-        // DOM要素
         const roomIdDisplay = document.getElementById('roomIdDisplay');
         const player1Score = document.getElementById('player1Score');
         const player2Score = document.getElementById('player2Score');
@@ -640,28 +601,11 @@
         const finalResult = document.getElementById('finalResult');
         const errorMessage = document.getElementById('errorMessage');
 
-        // 状態管理
         let myCards = [];
         let selectedCardId = null;
         let currentRound = 1;
         let scores = { player1: 0, player2: 0 };
 
-        // 🔧 同期修正用関数
-        function requestCardSync() {
-            console.log('🔧 Requesting card sync...');
-            if (roomId) {
-                socket.emit('request_card_sync', { room_id: roomId });
-            }
-        }
-
-        function forceResetAllCards() {
-            console.log('🔧 Force resetting all cards...');
-            if (roomId) {
-                socket.emit('reset_all_cards', { room_id: roomId });
-            }
-        }
-
-        // 初期化
         initializeBattle();
 
         function initializeBattle() {
@@ -680,9 +624,6 @@
 
         function setupSocketEvents() {
             socket.on('connect', () => {
-                console.log('✅ Socket Connected');
-                console.log('🆔 Socket ID:', socket.id);
-                
                 if (roomId) {
                     setTimeout(() => {
                         socket.emit('rejoin_room', { room_id: roomId });
@@ -691,58 +632,39 @@
             });
 
             socket.on('disconnect', (reason) => {
-                console.log('❌ Socket Disconnected:', reason);
+                // Handle disconnect
             });
 
             socket.on('reconnect', (attemptNumber) => {
-                console.log('🔄 Socket Reconnected:', attemptNumber);
-                
                 if (roomId) {
                     socket.emit('rejoin_room', { room_id: roomId });
                 }
             });
 
             socket.on('battle_result', (data) => {
-                console.log('🎯 Received battle_result');
                 displayBattleResult(data);
             });
 
             socket.on('next_round', (data) => {
-                console.log('🔄 Next round event:', data);
                 prepareNextRound(data.round);
             });
 
             socket.on('game_finished', (data) => {
-                console.log('🏁 Game finished event:', data);
                 displayGameEnd(data);
             });
 
-            // 🔥 新しいイベント: カード状態同期
             socket.on('sync_card_status', (data) => {
-                console.log('🔄 Card status sync received:', data);
                 if (data.cards) {
-                    // サーバーから送られたカード状態で完全に置き換え
                     myCards = data.cards;
-                    console.log('✅ Cards synchronized from server');
-                    
-                    // 即座に表示更新
                     displayPlayerCards();
-                    
-                    if (data.message) {
-                        console.log('Sync message:', data.message);
-                    }
                 }
             });
 
-            // 🔥 新しいイベント: 再戦開始
             socket.on('rematch_started', (data) => {
-                console.log('🔄 Rematch started event:', data);
                 handleRematchStarted(data);
             });
 
-            // 🔥 新しいイベント: カードリセット
             socket.on('cards_reset', (data) => {
-                console.log('🔄 Cards reset event:', data);
                 if (data.cards) {
                     myCards = data.cards;
                     displayPlayerCards();
@@ -751,35 +673,27 @@
             });
 
             socket.on('error', (data) => {
-                console.error('🐛 Socket Error:', data.message);
                 showError(data.message);
             });
         }
 
         async function loadPlayerCards() {
             try {
-                console.log('📋 Loading Player Cards');
-                
                 const response = await fetch(`/api/sessions/${sessionId}`);
                 const data = await response.json();
                 
                 if (response.ok) {
                     myCards = data.cards;
-                    console.log('✅ Loaded cards:', myCards);
                     displayPlayerCards();
                 } else {
                     throw new Error(data.error);
                 }
             } catch (error) {
-                console.error('❌ Error loading cards:', error);
                 showError('カード情報の読み込みに失敗しました: ' + error.message);
             }
         }
 
         function displayPlayerCards() {
-            console.log('🎴 Displaying Player Cards');
-            console.log('Cards state:', myCards.map(c => ({ id: c.id, name: c.name, used: c.used })));
-            
             playerCards.innerHTML = '';
 
             myCards.forEach((card, index) => {
@@ -815,35 +729,26 @@
         }
 
         function selectCard(cardId) {
-            console.log('🎯 Card Selection');
-            console.log(`Attempting to select card: ${cardId}`);
-            
-            // 使用済みカードチェック
             const targetCard = myCards.find(c => 
                 c.id === cardId || String(c.id) === String(cardId)
             );
             
             if (targetCard && targetCard.used) {
-                console.log('❌ Cannot select used card:', targetCard.name);
                 showError('このカードは既に使用済みです');
                 return;
             }
             
-            // 以前の選択を解除
             document.querySelectorAll('.card').forEach(card => {
                 card.classList.remove('selected');
             });
 
-            // 新しい選択
             const cardElement = document.querySelector(`[data-card-id="${cardId}"]`);
             
             if (cardElement && !cardElement.classList.contains('used')) {
                 cardElement.classList.add('selected');
                 selectedCardId = cardId;
                 confirmBtn.disabled = false;
-                console.log(`✅ Card selected: ${cardId}`);
             } else {
-                console.error('❌ Card element not found or is used');
                 showError('カードを選択できません');
             }
         }
@@ -855,14 +760,9 @@
             }
 
             if (!socket.connected) {
-                console.error('❌ Socket not connected');
                 showError('接続が切断されています。再接続中...');
                 return;
             }
-
-            console.log('🎯 Confirming card selection');
-            console.log('Room ID:', roomId);
-            console.log('Selected Card ID:', selectedCardId);
 
             socket.emit('card_selected', {
                 room_id: roomId,
@@ -880,8 +780,6 @@
         }
 
         function displayBattleResult(data) {
-            console.log('🎯 Battle Result:', data);
-            
             waitingScreen.style.display = 'none';
             battleAnimation.style.display = 'block';
             phaseIndicator.textContent = 'バトル中';
@@ -892,7 +790,6 @@
             const opponentPower = getOpponentCardPower(data);
 
             if (!myCard || !opponentCard) {
-                console.error('❌ Card data missing');
                 showError('カードデータが不正です');
                 return;
             }
@@ -918,18 +815,13 @@
             displayDamageCalculation(data);
             updateScores(data.scores);
 
-            // 🔥 重要: バトル結果受信時に使用済みカードIDを記録
             if (data.used_cards && data.used_cards[socket.id]) {
                 const usedCardId = data.used_cards[socket.id];
-                console.log(`🏷️ Server says card ${usedCardId} was used`);
-                
-                // ローカルでもマーク（サーバー同期前の暫定措置）
                 const card = myCards.find(c => 
                     String(c.id) === String(usedCardId)
                 );
                 if (card) {
                     card.used = true;
-                    console.log(`✅ Locally marked card ${card.name} as used`);
                 }
             }
 
@@ -1025,17 +917,9 @@
                 roundWinner.textContent = '相手の勝利...';
                 roundWinner.className = 'round-winner defeat';
             }
-
-            // 🔥 バトル結果表示後にサーバーから最新状態を要求
-            setTimeout(() => {
-                console.log('🔄 Requesting card sync after battle...');
-                requestCardSync();
-            }, 1000);
         }
 
         function nextRound() {
-            console.log('🔄 Starting next round...');
-            
             selectedCardId = null;
             battleResult.style.display = 'none';
             cardSelection.style.display = 'block';
@@ -1065,16 +949,11 @@
             }
         }
 
-        // 🔥 再戦開始処理
         function handleRematchStarted(data) {
-            console.log('🔄 Handling rematch start:', data);
-            
-            // ゲーム状態をリセット
             currentRound = 1;
             scores = data.room_status?.scores || { player1: 0, player2: 0 };
             selectedCardId = null;
             
-            // UI をリセット
             gameEnd.style.display = 'none';
             battleResult.style.display = 'none';
             battleAnimation.style.display = 'none';
@@ -1088,13 +967,11 @@
             
             confirmBtn.disabled = true;
             
-            // 🔥 サーバーから最新カード状態を同期
             setTimeout(() => {
-                requestCardSync();
+                socket.emit('request_card_sync', { room_id: roomId });
             }, 500);
             
             showSuccess('再戦が開始されました！');
-            console.log('✅ Rematch setup complete');
         }
 
         function showError(message) {
@@ -1132,7 +1009,6 @@
 
         function playAgain() {
             if (roomId) {
-                console.log('🔄 Requesting rematch...');
                 socket.emit('request_rematch', { room_id: roomId });
             } else {
                 window.location.href = 'matching.html';
@@ -1146,13 +1022,6 @@
         function goBack() {
             window.location.href = `card-generation.html?room=${roomId}`;
         }
-
-        // 初期化
-        window.addEventListener('load', () => {
-            console.log('📱 Page loaded, server URL:', serverUrl);
-            console.log('🏠 Room ID:', roomId);
-            console.log('🎫 Session ID:', sessionId);
-        });
     </script>
 </body>
 </html>
