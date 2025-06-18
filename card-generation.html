@@ -482,7 +482,6 @@
             font-weight: bold;
         }
 
-        /* レスポンシブ */
         @media (max-width: 768px) {
             .cards-grid {
                 grid-template-columns: 1fr;
@@ -508,7 +507,6 @@
             <p>3枚の写真からバトルカードを作成しよう！</p>
         </div>
 
-        <!-- ルーム情報 -->
         <div id="roomInfo" class="room-info">
             <div class="room-id">ルーム: <span id="roomIdDisplay"></span></div>
             <div class="opponent-status waiting" id="opponentStatus">
@@ -516,7 +514,6 @@
             </div>
         </div>
 
-        <!-- アップロード画面 -->
         <div id="uploadSection" class="upload-section">
             <h2>3枚の写真をアップロードしてください</h2>
             
@@ -538,14 +535,12 @@
             <div id="successMessage" class="success-message"></div>
         </div>
 
-        <!-- ローディング画面 -->
         <div id="loadingSection" class="loading">
             <div class="spinner"></div>
             <h3 class="loading-text">カードを生成中...</h3>
             <p>画像を分析して最強のカードを作成しています！</p>
         </div>
 
-        <!-- 結果表示画面 -->
         <div id="resultsSection" class="results-section">
             <div class="section-title">🎉 あなたのバトルカード</div>
             
@@ -554,13 +549,11 @@
             <div class="actions-section">
                 <div class="actions-title">次のステップ</div>
                 
-                <!-- 相手待ち状態 -->
                 <div id="waitingMessage" class="waiting-message" style="display: none;">
                     ⏳ 相手のカード生成完了を待っています...<br>
                     <small>カードの詳細を確認しながらお待ちください</small>
                 </div>
                 
-                <!-- バトル準備完了状態 -->
                 <div id="readyMessage" class="ready-message" style="display: none;">
                     🎮 両プレイヤー準備完了！バトル開始できます
                 </div>
@@ -578,9 +571,6 @@
     </div>
 
     <script>
-        // 🔥 既存UIを維持したまま個別・一括アップロード対応のJavaScript
-
-        // URL パラメータから設定を取得
         const urlParams = new URLSearchParams(window.location.search);
         const roomId = urlParams.get('room');
         
@@ -595,8 +585,6 @@
         }
 
         const serverUrl = getServerUrl();
-        console.log('🔌 Connecting to server:', serverUrl);
-
         const socket = io(serverUrl, {
             autoConnect: true,
             reconnection: true,
@@ -606,7 +594,6 @@
             transports: ['websocket', 'polling']
         });
 
-        // DOM要素
         const roomIdDisplay = document.getElementById('roomIdDisplay');
         const opponentStatus = document.getElementById('opponentStatus');
         const uploadSection = document.getElementById('uploadSection');
@@ -622,13 +609,11 @@
         const errorMessage = document.getElementById('errorMessage');
         const successMessage = document.getElementById('successMessage');
 
-        // 🔥 改善された状態管理
         let selectedFiles = [];
         let generatedCards = null;
         let sessionId = null;
         let isReady = false;
 
-        // 初期化
         initializePage();
 
         function initializePage() {
@@ -644,9 +629,6 @@
 
         function setupSocketEvents() {
             socket.on('connect', () => {
-                console.log('✅ Socket Connected');
-                console.log('🆔 Socket ID:', socket.id);
-                console.log('🌐 Server URL:', serverUrl);
                 showSuccess('サーバーに接続しました');
                 
                 if (roomId) {
@@ -657,12 +639,10 @@
             });
 
             socket.on('disconnect', (reason) => {
-                console.log('❌ Socket Disconnected:', reason);
                 showError('サーバーから切断されました');
             });
 
             socket.on('reconnect', (attemptNumber) => {
-                console.log('🔄 Socket Reconnected:', attemptNumber);
                 showSuccess('サーバーに再接続しました');
                 
                 if (roomId) {
@@ -671,7 +651,6 @@
             });
 
             socket.on('opponent_cards_ready', () => {
-                console.log('🎯 Opponent Cards Ready');
                 opponentStatus.textContent = '準備完了';
                 opponentStatus.className = 'opponent-status ready';
                 
@@ -681,7 +660,6 @@
             });
 
             socket.on('both_players_ready', () => {
-                console.log('🎮 Both Players Ready');
                 showSuccess('両プレイヤー準備完了！バトル開始します！');
                 setTimeout(() => {
                     window.location.href = `battle.html?room=${roomId}&session=${sessionId}`;
@@ -689,34 +667,22 @@
             });
 
             socket.on('error', (data) => {
-                console.error('🐛 Socket Error:', data.message);
                 showError(data.message);
             });
         }
 
-        // 🔥 ファイル入力の設定（拡張版）
         function setupFileInputs() {
             fileInput.addEventListener('change', handleFileSelect);
-            
-            // 🔥 新機能：ファイル入力属性を動的に変更
             updateFileInputAttributes();
         }
 
-        // 🔥 ファイル入力属性の動的更新
         function updateFileInputAttributes() {
             if (selectedFiles.length === 0) {
-                // 何も選択されていない：一括選択を許可
                 fileInput.multiple = true;
                 fileInput.removeAttribute('capture');
-                console.log('📁 Mode: Bulk selection enabled');
             } else if (selectedFiles.length < 3) {
-                // 1-2枚選択済み：個別追加モード
                 fileInput.multiple = false;
-                fileInput.setAttribute('capture', 'environment'); // カメラも利用可能
-                console.log('📷 Mode: Single addition enabled');
-            } else {
-                // 3枚選択済み：選択を無効化
-                console.log('🚫 Mode: Selection disabled (3 files)');
+                fileInput.setAttribute('capture', 'environment');
             }
         }
 
@@ -740,17 +706,14 @@
             });
         }
 
-        // 🔥 スマートファイル選択処理
         function handleFileSelect(event) {
             const files = Array.from(event.target.files);
             const mode = selectedFiles.length === 0 ? 'bulk' : 'add';
             handleFiles(files, mode);
             
-            // 入力をリセットして同じファイルを再選択可能に
             event.target.value = '';
         }
 
-        // 🔥 統合ファイル処理関数
         function handleFiles(files, mode = 'smart') {
             const imageFiles = files.filter(file => file.type.startsWith('image/'));
             
@@ -759,7 +722,6 @@
                 return;
             }
 
-            // スマートモード：現在の状況に応じて最適な処理を選択
             if (mode === 'smart') {
                 if (selectedFiles.length === 0) {
                     mode = 'bulk';
@@ -769,17 +731,14 @@
             }
 
             if (mode === 'bulk') {
-                // 一括選択：3枚まで一度に選択
                 if (imageFiles.length > 3) {
                     selectedFiles = imageFiles.slice(0, 3);
                     showError('3枚まで選択できます（最初の3枚を使用）');
                 } else {
                     selectedFiles = imageFiles;
                 }
-                console.log(`📁 Bulk selection: ${selectedFiles.length} files`);
                 
             } else if (mode === 'add') {
-                // 個別追加：現在のファイルに1枚ずつ追加
                 const remainingSlots = 3 - selectedFiles.length;
                 
                 if (remainingSlots === 0) {
@@ -787,11 +746,8 @@
                     return;
                 }
                 
-                // 1枚ずつ追加（個別選択時）
                 const fileToAdd = imageFiles[0];
                 selectedFiles.push(fileToAdd);
-                
-                console.log(`📷 Single addition: Added "${fileToAdd.name}", total: ${selectedFiles.length}`);
                 
                 if (imageFiles.length > 1) {
                     showError('1枚ずつ追加してください');
@@ -800,9 +756,8 @@
 
             updatePreview();
             updateGenerateButton();
-            updateFileInputAttributes(); // 🔥 入力属性を更新
+            updateFileInputAttributes();
             
-            // 成功メッセージ
             if (selectedFiles.length === 3) {
                 showSuccess('3枚の写真が揃いました！カードを生成できます');
             } else {
@@ -840,7 +795,6 @@
             });
         }
 
-        // 🔥 ファイル削除（改善版）
         function removeFile(index) {
             if (index < 0 || index >= selectedFiles.length) {
                 return;
@@ -849,11 +803,9 @@
             const removedFile = selectedFiles[index];
             selectedFiles.splice(index, 1);
             
-            console.log(`🗑️ Removed file: "${removedFile.name}", remaining: ${selectedFiles.length}`);
-            
             updatePreview();
             updateGenerateButton();
-            updateFileInputAttributes(); // 🔥 入力属性を更新
+            updateFileInputAttributes();
             
             showSuccess(`"${removedFile.name}" を削除しました`);
         }
@@ -874,7 +826,6 @@
                 return;
             }
 
-            // ローディング表示
             uploadSection.style.display = 'none';
             loadingSection.style.display = 'block';
 
@@ -883,8 +834,6 @@
                 selectedFiles.forEach(file => {
                     formData.append('images', file);
                 });
-
-                console.log('🚀 Generating cards with files:', selectedFiles.map(f => f.name));
 
                 const response = await fetch('/api/cards/generate', {
                     method: 'POST',
@@ -903,7 +852,6 @@
                 }
 
             } catch (error) {
-                console.error('Error:', error);
                 showError('カード生成中にエラーが発生しました: ' + error.message);
                 
                 loadingSection.style.display = 'none';
@@ -986,23 +934,16 @@
                 return;
             }
 
-            console.log('🎯 Ready For Battle Debug');
-            console.log('Room ID:', roomId);
-            console.log('Generated Cards:', generatedCards);
-
             isReady = true;
             readyForBattleBtn.disabled = true;
             readyForBattleBtn.textContent = '準備完了しました...';
 
             if (socket && socket.connected && roomId) {
-                console.log('🚀 Sending cards_ready event...');
                 socket.emit('cards_ready', {
                     room_id: roomId,
                     cards: generatedCards
                 });
-                console.log('✅ cards_ready event sent');
             } else {
-                console.error('❌ Socket not connected or roomId missing');
                 showError('接続エラーが発生しました。ページを再読み込みしてください。');
                 return;
             }
@@ -1026,7 +967,7 @@
             
             previewSection.innerHTML = '';
             updateGenerateButton();
-            updateFileInputAttributes(); // 🔥 入力属性をリセット
+            updateFileInputAttributes();
             hideMessages();
             
             readyForBattleBtn.disabled = false;
@@ -1056,16 +997,10 @@
             successMessage.style.display = 'none';
         }
 
-        // イベントリスナー設定
         generateBtn.addEventListener('click', generateCards);
         readyForBattleBtn.addEventListener('click', readyForBattle);
 
-        // 初期化
         updateGenerateButton();
-
-        window.addEventListener('load', () => {
-            console.log('📱 Page loaded, server URL:', serverUrl);
-        });
     </script>
 </body>
 </html>
