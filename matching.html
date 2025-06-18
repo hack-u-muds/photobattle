@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
     <title>Photo Battle - オンライン対戦</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
@@ -16,61 +16,63 @@
             font-family: 'Arial', sans-serif;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             min-height: 100vh;
-            padding: 20px;
+            padding: 10px;
+            overflow-x: hidden;
         }
 
         .container {
             max-width: 800px;
             margin: 0 auto;
             background: white;
-            border-radius: 20px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
             overflow: hidden;
+            min-height: calc(100vh - 20px);
         }
 
         .header {
             background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
             color: white;
-            padding: 40px;
+            padding: 25px 20px;
             text-align: center;
         }
 
         .header h1 {
-            font-size: 3em;
-            margin-bottom: 15px;
+            font-size: 2.2em;
+            margin-bottom: 10px;
             text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
         }
 
         .header p {
-            font-size: 1.3em;
+            font-size: 1.1em;
             opacity: 0.9;
-            margin-bottom: 10px;
+            margin-bottom: 8px;
         }
 
         .subtitle {
-            font-size: 1.1em;
+            font-size: 1em;
             opacity: 0.8;
         }
 
         .main-content {
-            padding: 50px 40px;
+            padding: 30px 20px;
             text-align: center;
         }
 
         .room-controls {
             background: #f8f9fa;
-            padding: 40px;
-            border-radius: 20px;
-            margin: 30px 0;
+            padding: 25px;
+            border-radius: 15px;
+            margin: 20px 0;
         }
 
         .control-section {
-            margin: 30px 0;
+            margin: 25px 0;
         }
 
         .section-title {
-            font-size: 1.4em;
-            margin-bottom: 20px;
+            font-size: 1.2em;
+            margin-bottom: 15px;
             color: #333;
             font-weight: bold;
         }
@@ -79,17 +81,19 @@
             background: linear-gradient(45deg, #ff6b6b, #ee5a52);
             color: white;
             border: none;
-            padding: 20px 40px;
-            border-radius: 15px;
-            font-size: 1.3em;
+            padding: 18px 30px;
+            border-radius: 12px;
+            font-size: 1.1em;
             cursor: pointer;
             transition: all 0.3s ease;
-            min-width: 250px;
+            width: 100%;
+            max-width: 300px;
+            font-weight: bold;
         }
 
-        .create-room-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.3);
+        .create-room-btn:hover:not(:disabled) {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.3);
         }
 
         .create-room-btn:disabled {
@@ -100,7 +104,7 @@
         }
 
         .divider {
-            margin: 40px 0;
+            margin: 30px 0;
             position: relative;
             text-align: center;
         }
@@ -117,29 +121,29 @@
 
         .divider span {
             background: #f8f9fa;
-            padding: 0 20px;
+            padding: 0 15px;
             color: #666;
-            font-size: 1.1em;
+            font-size: 1em;
         }
 
         .room-input-section {
             display: flex;
+            flex-direction: column;
             gap: 15px;
-            justify-content: center;
             align-items: center;
-            flex-wrap: wrap;
         }
 
         .room-id-input {
-            padding: 15px 25px;
+            padding: 15px 20px;
             border: 3px solid #ddd;
-            border-radius: 15px;
-            font-size: 1.2em;
+            border-radius: 12px;
+            font-size: 1.1em;
             text-align: center;
             text-transform: uppercase;
-            letter-spacing: 3px;
+            letter-spacing: 2px;
             font-weight: bold;
-            min-width: 200px;
+            width: 100%;
+            max-width: 250px;
             transition: border-color 0.3s;
         }
 
@@ -153,15 +157,18 @@
             color: white;
             border: none;
             padding: 15px 30px;
-            border-radius: 15px;
-            font-size: 1.2em;
+            border-radius: 12px;
+            font-size: 1.1em;
             cursor: pointer;
             transition: all 0.3s ease;
+            width: 100%;
+            max-width: 250px;
+            font-weight: bold;
         }
 
-        .join-room-btn:hover {
+        .join-room-btn:hover:not(:disabled) {
             transform: translateY(-2px);
-            box-shadow: 0 10px 20px rgba(78, 205, 196, 0.3);
+            box-shadow: 0 8px 20px rgba(78, 205, 196, 0.3);
         }
 
         .join-room-btn:disabled {
@@ -174,37 +181,40 @@
         .room-status {
             background: white;
             border: 3px solid #4ecdc4;
-            border-radius: 20px;
-            padding: 30px;
-            margin: 30px 0;
+            border-radius: 15px;
+            padding: 25px;
+            margin: 25px 0;
             display: none;
         }
 
         .room-id-display {
-            font-size: 2.5em;
+            font-size: 2em;
             font-weight: bold;
             color: #333;
-            letter-spacing: 4px;
-            margin: 20px 0;
+            letter-spacing: 3px;
+            margin: 15px 0;
             background: #f8f9fa;
-            padding: 15px;
-            border-radius: 10px;
+            padding: 12px;
+            border-radius: 8px;
+            word-break: break-all;
+            border: 2px solid #4ecdc4;
         }
 
         .players-status {
             display: flex;
-            justify-content: center;
-            gap: 30px;
-            margin: 30px 0;
-            flex-wrap: wrap;
+            flex-direction: column;
+            gap: 20px;
+            margin: 25px 0;
+            align-items: center;
         }
 
         .player-slot {
             background: #f8f9fa;
             border: 3px dashed #ddd;
-            border-radius: 15px;
-            padding: 25px;
-            min-width: 180px;
+            border-radius: 12px;
+            padding: 20px;
+            width: 100%;
+            max-width: 200px;
             text-align: center;
             transition: all 0.3s ease;
         }
@@ -216,15 +226,15 @@
         }
 
         .player-avatar {
-            width: 80px;
-            height: 80px;
+            width: 60px;
+            height: 60px;
             border-radius: 50%;
             background: #ddd;
-            margin: 0 auto 15px;
+            margin: 0 auto 12px;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2em;
+            font-size: 1.5em;
             transition: all 0.3s ease;
         }
 
@@ -234,25 +244,27 @@
         }
 
         .player-name {
-            font-size: 1.1em;
+            font-size: 1em;
             font-weight: bold;
-            margin: 10px 0;
+            margin: 8px 0;
         }
 
         .vs-divider {
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2.5em;
+            font-size: 2em;
             font-weight: bold;
             color: #ff6b6b;
-            min-width: 80px;
+            margin: 15px 0;
+            order: 1;
         }
 
         .waiting-animation {
             display: none;
             color: #666;
             font-style: italic;
+            font-size: 0.9em;
         }
 
         .waiting-dots {
@@ -274,15 +286,15 @@
         .game-ready-section {
             background: linear-gradient(45deg, #4ecdc4, #44a08d);
             color: white;
-            padding: 25px;
-            border-radius: 15px;
-            margin-top: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            margin-top: 25px;
             display: none;
         }
 
         .ready-message {
-            font-size: 1.3em;
-            margin-bottom: 20px;
+            font-size: 1.2em;
+            margin-bottom: 15px;
             font-weight: bold;
         }
 
@@ -290,25 +302,28 @@
             background: linear-gradient(45deg, #ff6b6b, #ee5a52);
             color: white;
             border: none;
-            padding: 20px 50px;
-            border-radius: 15px;
-            font-size: 1.4em;
+            padding: 18px 30px;
+            border-radius: 12px;
+            font-size: 1.2em;
             cursor: pointer;
             transition: all 0.3s ease;
             font-weight: bold;
+            width: 100%;
+            max-width: 280px;
         }
 
         .start-game-btn:hover {
-            transform: translateY(-3px);
-            box-shadow: 0 15px 30px rgba(255, 107, 107, 0.4);
+            transform: translateY(-2px);
+            box-shadow: 0 8px 20px rgba(255, 107, 107, 0.4);
         }
 
         .message {
-            padding: 15px 25px;
-            border-radius: 10px;
-            margin: 20px 0;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin: 15px 0;
             display: none;
             font-weight: bold;
+            font-size: 0.9em;
         }
 
         .error-message {
@@ -328,11 +343,11 @@
 
         .connection-status {
             position: fixed;
-            top: 20px;
-            right: 20px;
-            padding: 12px 20px;
-            border-radius: 25px;
-            font-size: 0.9em;
+            top: 10px;
+            right: 10px;
+            padding: 8px 12px;
+            border-radius: 20px;
+            font-size: 0.8em;
             font-weight: bold;
             z-index: 1000;
         }
@@ -347,27 +362,96 @@
             color: white;
         }
 
-        @media (max-width: 768px) {
+        /* スマホ専用のレイアウト調整 */
+        @media (max-width: 480px) {
+            body {
+                padding: 5px;
+            }
+
+            .container {
+                border-radius: 10px;
+                min-height: calc(100vh - 10px);
+            }
+
+            .header {
+                padding: 20px 15px;
+            }
+
             .header h1 {
-                font-size: 2.5em;
+                font-size: 1.8em;
+            }
+
+            .header p {
+                font-size: 1em;
+            }
+
+            .main-content {
+                padding: 20px 15px;
+            }
+
+            .room-controls {
+                padding: 20px;
+                margin: 15px 0;
+            }
+
+            .section-title {
+                font-size: 1.1em;
+            }
+
+            .room-id-display {
+                font-size: 1.5em;
+                letter-spacing: 2px;
+                padding: 10px;
+            }
+
+            .players-status {
+                gap: 15px;
+                margin: 20px 0;
+            }
+
+            .vs-divider {
+                font-size: 1.5em;
+                margin: 10px 0;
+            }
+
+            .connection-status {
+                top: 5px;
+                right: 5px;
+                font-size: 0.7em;
+                padding: 6px 10px;
+            }
+        }
+
+        /* 横向きスマホ対応 */
+        @media (max-width: 768px) and (orientation: landscape) {
+            .players-status {
+                flex-direction: row;
+                justify-content: space-around;
+            }
+
+            .vs-divider {
+                order: 0;
+                margin: 0 15px;
+            }
+        }
+
+        /* タブレット対応 */
+        @media (min-width: 481px) and (max-width: 768px) {
+            .header h1 {
+                font-size: 2em;
             }
             
             .room-input-section {
-                flex-direction: column;
+                flex-direction: row;
+                justify-content: center;
             }
             
             .room-id-input {
-                min-width: 250px;
+                max-width: 200px;
             }
-            
-            .players-status {
-                flex-direction: column;
-                align-items: center;
-            }
-            
-            .vs-divider {
-                order: 2;
-                margin: 20px 0;
+
+            .join-room-btn {
+                max-width: 150px;
             }
         }
     </style>
@@ -503,7 +587,7 @@
 
         socket.on('connect_error', (error) => {
             updateConnectionStatus(false);
-            showError(`サーバーに接続できません: ${serverUrl}`);
+            showError('サーバーに接続できません');
         });
 
         socket.on('room_created', (data) => {
@@ -637,6 +721,9 @@
         }
 
         updateConnectionStatus(false);
+
+        // スマホでのタッチイベント改善
+        document.addEventListener('touchstart', function() {}, {passive: true});
     </script>
 </body>
 </html>
