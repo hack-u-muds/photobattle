@@ -1,5 +1,5 @@
 from flask import Flask, request, jsonify, send_file
-from flask_cors import CORS  # この行を追加
+from flask_cors import CORS
 from werkzeug.utils import secure_filename
 import os
 import json
@@ -11,6 +11,7 @@ import shutil
 
 app = Flask(__name__)
 CORS(app)
+
 # 設定
 UPLOAD_FOLDER = 'uploads'
 CARDS_FOLDER = 'generated_cards'
@@ -50,7 +51,6 @@ def prepare_card_for_game_logic(card_info: Dict, session_id: str, card_index: in
         'attribute_en': game_card['attribute_en'],
         'card_image_url': game_card['card_image_url'],
         'used': game_card['used'],
-        # ゲームロジック担当者が必要とする追加情報
         'effectiveness_info': {
             'strong_against': [attr for attr, mult in game_card['effectiveness_multipliers'].items() if mult > 1.0],
             'weak_against': [attr for attr, mult in game_card['effectiveness_multipliers'].items() if mult < 1.0],
@@ -99,7 +99,6 @@ def generate_cards():
         for i, file in enumerate(files):
             if file and file.filename and allowed_file(file.filename):
                 filename = secure_filename(file.filename)
-                # ファイル名にインデックスを追加
                 name, ext = os.path.splitext(filename)
                 filename = f"{name}_{i+1}{ext}"
                 filepath = os.path.join(session_folder, filename)
@@ -291,12 +290,4 @@ def internal_error(e):
     return jsonify({'error': 'Internal server error'}), 500
 
 if __name__ == '__main__':
-    print("🎨 カード生成専用 API サーバー v2.0.0")
-    print("📋 提供機能:")
-    print("   - 画像からカード生成")
-    print("   - 属性システム (火/水/土)")
-    print("   - ゲームロジック連携用データ出力")
-    print("🚀 サーバー起動中...")
-    
-    # 開発環境での実行
-    app.run(debug=True, host='0.0.0.0', port=5001)
+    app.run(debug=False, host='0.0.0.0', port=5001)
