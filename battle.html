@@ -72,23 +72,33 @@
             transform: translateY(0);
         }
 
+        /* カード生成画面と同じルーム情報スタイル */
         .room-info {
-            position: absolute;
-            top: 12px;
-            right: 15px;
-            background: rgba(255,255,255,0.3);
-            padding: 6px 10px;
-            border-radius: 12px;
-            font-size: 0.75em;
+            background: rgba(255,255,255,0.95);
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin: 12px;
+            text-align: center;
             font-weight: bold;
-            border: 1px solid rgba(255,255,255,0.4);
-            backdrop-filter: blur(5px);
-            color: white;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.3);
-            max-width: 120px;
-            overflow: hidden;
-            white-space: nowrap;
-            text-overflow: ellipsis;
+            border: 2px solid #4ecdc4;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+
+        .room-id {
+            font-size: 1em;
+            color: #333;
+            letter-spacing: 1px;
+            margin-bottom: 6px;
+        }
+
+        .room-id span {
+            background: linear-gradient(45deg, #ff6b6b, #4ecdc4);
+            background-clip: text;
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            font-weight: bold;
+            font-size: 1.1em;
+            letter-spacing: 2px;
         }
 
         .score-board {
@@ -114,6 +124,29 @@
             font-size: 1.8em;
             font-weight: bold;
             color: #ff6b6b;
+            transition: all 0.5s ease;
+            position: relative;
+        }
+
+        .score.updated {
+            animation: scoreUpdate 0.8s ease;
+        }
+
+        @keyframes scoreUpdate {
+            0% {
+                transform: scale(1);
+                color: #ff6b6b;
+            }
+            50% {
+                transform: scale(1.3);
+                color: #4ecdc4;
+                text-shadow: 0 0 10px rgba(78, 205, 196, 0.6);
+            }
+            100% {
+                transform: scale(1);
+                color: #ff6b6b;
+                text-shadow: none;
+            }
         }
 
         .vs-divider {
@@ -347,6 +380,7 @@
             margin: 25px 0;
             flex-wrap: wrap;
             gap: 15px;
+            position: relative;
         }
 
         .battle-card {
@@ -358,6 +392,8 @@
             max-width: 250px;
             flex: 1;
             min-width: 200px;
+            position: relative;
+            z-index: 1;
         }
 
         .battle-card.winner {
@@ -399,8 +435,22 @@
             font-weight: bold;
             color: #ff6b6b;
             animation: pulse 1s infinite;
-            margin: 0 10px;
             flex-shrink: 0;
+            position: absolute;
+            left: 50%;
+            top: 50%;
+            transform: translate(-50%, -50%);
+            background: white;
+            padding: 10px 15px;
+            border-radius: 50%;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            border: 3px solid #ff6b6b;
+            z-index: 2;
+            width: 80px;
+            height: 80px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
         }
 
         @keyframes pulse {
@@ -579,12 +629,19 @@
             }
 
             .room-info {
-                top: 8px;
-                right: 8px;
-                padding: 4px 6px;
-                font-size: 0.65em;
-                max-width: 100px;
-                border-radius: 8px;
+                margin: 8px;
+                padding: 8px 12px;
+            }
+
+            .room-id {
+                font-size: 0.9em;
+                letter-spacing: 0.5px;
+                margin-bottom: 4px;
+            }
+
+            .room-id span {
+                font-size: 1em;
+                letter-spacing: 1px;
             }
 
             .score-board {
@@ -673,21 +730,50 @@
             }
 
             .battle-cards {
+                display: flex;
                 flex-direction: column;
-                gap: 10px;
+                gap: 50px;
                 margin: 20px 0;
+                align-items: center;
+                position: relative;
+                min-height: 350px;
+                justify-content: space-around;
             }
 
             .battle-card {
                 max-width: 100%;
                 min-width: auto;
                 padding: 12px;
+                margin: 0;
+                width: 90%;
+                max-width: 300px;
+            }
+
+            .battle-card:first-child {
+                margin-bottom: 25px;
+            }
+
+            .battle-card:last-child {
+                margin-top: 25px;
             }
 
             .vs-animation {
                 font-size: 1.5em;
-                order: 1;
-                margin: 10px 0;
+                position: static;
+                margin: 0 auto;
+                z-index: 10;
+                background: white;
+                padding: 12px;
+                border-radius: 50%;
+                box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+                border: 3px solid #ff6b6b;
+                width: 70px;
+                height: 70px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-weight: bold;
+                flex-shrink: 0;
             }
 
             .damage-calculation {
@@ -784,9 +870,12 @@
     <div class="container">
         <div class="header">
             <button class="back-btn" onclick="goBack()">← 戻る</button>
-            <div class="room-info" id="roomInfo">ルーム: <span id="roomIdDisplay"></span></div>
-            
             <h1>⚔️ Photo Battle</h1>
+        </div>
+
+        <!-- カード生成画面と同じスタイルのルーム情報 -->
+        <div class="room-info">
+            <div class="room-id">ルーム: <span id="roomIdDisplay"></span></div>
         </div>
 
         <div class="score-board">
@@ -903,7 +992,7 @@
         let myCards = [];
         let selectedCardId = null;
         let currentRound = 1;
-        let scores = { player1: 0, player2: 0 };
+        let mySocketId = null;
 
         initializeBattle();
 
@@ -923,6 +1012,7 @@
 
         function setupSocketEvents() {
             socket.on('connect', () => {
+                mySocketId = socket.id;
                 if (roomId) {
                     setTimeout(() => {
                         socket.emit('rejoin_room', { room_id: roomId });
@@ -935,6 +1025,7 @@
             });
 
             socket.on('reconnect', (attemptNumber) => {
+                mySocketId = socket.id;
                 if (roomId) {
                     socket.emit('rejoin_room', { room_id: roomId });
                 }
@@ -1094,7 +1185,7 @@
             }
 
             battleCards.innerHTML = `
-                <div class="battle-card ${data.winner === socket.id ? 'winner' : 'loser'}">
+                <div class="battle-card ${data.winner === mySocketId ? 'winner' : 'loser'}">
                     <h4>あなたのカード</h4>
                     <img src="${myCard.card_image_url}" class="card-image">
                     <h5>${myCard.name}</h5>
@@ -1103,7 +1194,7 @@
                 
                 <div class="vs-animation">VS</div>
                 
-                <div class="battle-card ${data.winner !== socket.id && data.winner ? 'winner' : 'loser'}">
+                <div class="battle-card ${data.winner !== mySocketId && data.winner ? 'winner' : 'loser'}">
                     <h4>相手のカード</h4>
                     <img src="${opponentCard.card_image_url}" class="card-image">
                     <h5>${opponentCard.name}</h5>
@@ -1112,10 +1203,11 @@
             `;
 
             displayDamageCalculation(data);
-            updateScores(data.scores);
+            // スコア更新をコメントアウト（バトル結果表示後に更新）
+            // updateScores(data.scores);
 
-            if (data.used_cards && data.used_cards[socket.id]) {
-                const usedCardId = data.used_cards[socket.id];
+            if (data.used_cards && data.used_cards[mySocketId]) {
+                const usedCardId = data.used_cards[mySocketId];
                 const card = myCards.find(c => 
                     String(c.id) === String(usedCardId)
                 );
@@ -1124,28 +1216,29 @@
                 }
             }
 
+            // 3秒後にバトル結果を表示（スコア更新はshowBattleResult内で行う）
             setTimeout(() => {
                 showBattleResult(data);
             }, 3000);
         }
 
         function getMyCard(data) {
-            const myPlayerData = Object.values(data.players).find(p => p.player_id === socket.id);
+            const myPlayerData = Object.values(data.players).find(p => p.player_id === mySocketId);
             return myPlayerData ? myPlayerData.card : null;
         }
 
         function getOpponentCard(data) {
-            const opponentData = Object.values(data.players).find(p => p.player_id !== socket.id);
+            const opponentData = Object.values(data.players).find(p => p.player_id !== mySocketId);
             return opponentData ? opponentData.card : null;
         }
 
         function getMyCardPower(data) {
-            const myPlayerData = Object.values(data.players).find(p => p.player_id === socket.id);
+            const myPlayerData = Object.values(data.players).find(p => p.player_id === mySocketId);
             return myPlayerData ? myPlayerData.battle_power.effective_power : 0;
         }
 
         function getOpponentCardPower(data) {
-            const opponentData = Object.values(data.players).find(p => p.player_id !== socket.id);
+            const opponentData = Object.values(data.players).find(p => p.player_id !== mySocketId);
             return opponentData ? opponentData.battle_power.effective_power : 0;
         }
 
@@ -1192,9 +1285,37 @@
         }
 
         function updateScores(newScores) {
-            scores = newScores;
-            const myScore = newScores[socket.id] || 0;
-            const opponentScore = Object.values(newScores).find(score => score !== myScore) || 0;
+            // 自分のスコアと相手のスコアを正しく分離
+            const myScore = newScores[mySocketId] || 0;
+            
+            // 相手のスコアを取得（自分以外のプレイヤーのスコア）
+            let opponentScore = 0;
+            for (const playerId in newScores) {
+                if (playerId !== mySocketId) {
+                    opponentScore = newScores[playerId] || 0;
+                    break;
+                }
+            }
+            
+            // 現在のスコアと比較してアニメーションを追加
+            const currentMyScore = parseInt(player1Score.textContent) || 0;
+            const currentOpponentScore = parseInt(player2Score.textContent) || 0;
+            
+            // 自分のスコアが更新された場合
+            if (myScore > currentMyScore) {
+                player1Score.classList.add('updated');
+                setTimeout(() => {
+                    player1Score.classList.remove('updated');
+                }, 800);
+            }
+            
+            // 相手のスコアが更新された場合
+            if (opponentScore > currentOpponentScore) {
+                player2Score.classList.add('updated');
+                setTimeout(() => {
+                    player2Score.classList.remove('updated');
+                }, 800);
+            }
             
             player1Score.textContent = myScore;
             player2Score.textContent = opponentScore;
@@ -1206,16 +1327,27 @@
             phaseIndicator.textContent = 'ラウンド結果';
             phaseIndicator.className = 'phase-indicator result';
 
+            let resultText = '';
+            let resultClass = '';
+            
             if (!data.winner) {
-                roundWinner.textContent = '引き分け！';
-                roundWinner.className = 'round-winner draw';
-            } else if (data.winner === socket.id) {
-                roundWinner.textContent = 'あなたの勝利！';
-                roundWinner.className = 'round-winner victory';
+                resultText = '引き分け！';
+                resultClass = 'round-winner draw';
+            } else if (data.winner === mySocketId) {
+                resultText = 'あなたの勝利！🎉';
+                resultClass = 'round-winner victory';
             } else {
-                roundWinner.textContent = '相手の勝利...';
-                roundWinner.className = 'round-winner defeat';
+                resultText = '相手の勝利...😢';
+                resultClass = 'round-winner defeat';
             }
+
+            roundWinner.textContent = resultText;
+            roundWinner.className = resultClass;
+            
+            // 勝敗結果表示と同時にスコア更新のアニメーションを実行
+            setTimeout(() => {
+                updateScores(data.scores);
+            }, 200); // 少し遅らせてスコア更新アニメーションを実行
         }
 
         function nextRound() {
@@ -1239,18 +1371,20 @@
             battleResult.style.display = 'none';
             gameEnd.style.display = 'block';
 
-            if (data.winner === socket.id) {
+            if (data.winner === mySocketId) {
                 finalResult.textContent = '🎉 ゲーム勝利！';
                 finalResult.className = 'final-result victory';
-            } else {
+            } else if (data.winner) {
                 finalResult.textContent = '😢 ゲーム敗北...';
                 finalResult.className = 'final-result defeat';
+            } else {
+                finalResult.textContent = '🤝 引き分け！';
+                finalResult.className = 'final-result draw';
             }
         }
 
         function handleRematchStarted(data) {
             currentRound = 1;
-            scores = data.room_status?.scores || { player1: 0, player2: 0 };
             selectedCardId = null;
             
             gameEnd.style.display = 'none';
@@ -1259,7 +1393,10 @@
             waitingScreen.style.display = 'none';
             cardSelection.style.display = 'block';
             
-            updateScores(scores);
+            // スコアを0にリセット
+            player1Score.textContent = '0';
+            player2Score.textContent = '0';
+            
             roundNumber.textContent = 'Round 1';
             phaseIndicator.textContent = 'カード選択中';
             phaseIndicator.className = 'phase-indicator selection';

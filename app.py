@@ -287,25 +287,39 @@ def rejoin_room(data):
     
     join_room(room_id)
     
+    # スコアの初期化を確実に行う
+    if 'scores' not in room:
+        room['scores'] = {}
+    
     if current_socket_id in current_players and current_socket_id in player_cards:
+        # 既に参加済みで、カードも持っている場合
+        if current_socket_id not in room['scores']:
+            room['scores'][current_socket_id] = 0
         return
     
     if current_socket_id in current_players and current_socket_id not in player_cards:
+        # プレイヤーリストにはいるが、カードがない場合
         unassigned_cards = [owner for owner in available_card_owners if owner not in current_players]
         if unassigned_cards:
             old_card_owner = unassigned_cards[0]
             player_cards[current_socket_id] = player_cards[old_card_owner]
             del player_cards[old_card_owner]
+        if current_socket_id not in room['scores']:
+            room['scores'][current_socket_id] = 0
         return
     
     if current_socket_id not in current_players and current_socket_id in player_cards:
+        # プレイヤーリストにはいないが、カードはある場合
         if len(current_players) < 2:
             current_players.append(current_socket_id)
         else:
             current_players[1] = current_socket_id
+        if current_socket_id not in room['scores']:
+            room['scores'][current_socket_id] = 0
         return
     
     if current_socket_id not in current_players and current_socket_id not in player_cards:
+        # 新規参加の場合
         unassigned_cards = [owner for owner in available_card_owners if owner not in current_players]
         
         if unassigned_cards:
@@ -320,16 +334,16 @@ def rejoin_room(data):
                     if player_id not in player_cards:
                         current_players[i] = current_socket_id
                         break
+        
+        # スコアを確実に設定
+        if current_socket_id not in room['scores']:
+            room['scores'][current_socket_id] = 0
     
-    scores = room.get('scores', {})
-    if current_socket_id not in scores:
-        scores[current_socket_id] = 0
-        for old_id in list(scores.keys()):
-            if old_id not in current_players and old_id != current_socket_id:
-                if current_socket_id not in scores:
-                    scores[current_socket_id] = scores[old_id]
-                del scores[old_id]
-                break
+    # 古いスコアデータのクリーンアップ
+    valid_players = set(current_players)
+    for old_id in list(room['scores'].keys()):
+        if old_id not in valid_players and old_id not in player_cards:
+            del room['scores'][old_id]
 
 @socketio.on('cards_ready')
 def cards_ready(data):
@@ -488,6 +502,7 @@ def process_battle(room_id, round_number):
     
     players = list(selections.keys())
     if len(players) != 2:
+        print(f"ERROR: Expected 2 players, got {len(players)}")
         return
     
     player1, player2 = players[0], players[1]
@@ -498,29 +513,45 @@ def process_battle(room_id, round_number):
     player1_battle = calculate_battle_power(card1, card2)
     player2_battle = calculate_battle_power(card2, card1)
     
+    # 勝者判定
+    winner = None
+    winner_card = None
+    loser_card = None
+    winner_battle = None
+    loser_battle = None
+    
     if player1_battle['effective_power'] > player2_battle['effective_power']:
         winner = player1
-        loser = player2
         winner_card = card1
         loser_card = card2
         winner_battle = player1_battle
         loser_battle = player2_battle
     elif player2_battle['effective_power'] > player1_battle['effective_power']:
         winner = player2
-        loser = player1
         winner_card = card2
         loser_card = card1
         winner_battle = player2_battle
         loser_battle = player1_battle
-    else:
-        winner = None
-        winner_card = None
-        loser_card = None
-        winner_battle = None
-        loser_battle = None
+    # else: 引き分けの場合はwinnerはNoneのまま
     
+    # スコア更新（修正版）
+    if 'scores' not in room:
+        room['scores'] = {}
+    
+    # 両プレイヤーのスコアを確実に初期化
+    if player1 not in room['scores']:
+        room['scores'][player1] = 0
+    if player2 not in room['scores']:
+        room['scores'][player2] = 0
+    
+    print(f"DEBUG: Before score update - Player1: {room['scores'][player1]}, Player2: {room['scores'][player2]}")
+    
+    # 勝者のスコアを増加
     if winner:
-        room['scores'][winner] = room['scores'].get(winner, 0) + 1
+        room['scores'][winner] += 1
+        print(f"DEBUG: Winner {winner} score updated to {room['scores'][winner]}")
+    
+    print(f"DEBUG: After score update - All scores: {room['scores']}")
     
     # カードを使用済みにマーク
     player1_card_id = card1['id']
@@ -556,7 +587,7 @@ def process_battle(room_id, round_number):
         'winner': winner,
         'winner_card': winner_card,
         'loser_card': loser_card,
-        'scores': room['scores'].copy(),
+        'scores': room['scores'].copy(),  # 最新のスコアを送信
         'is_draw': winner is None,
         'battle_timestamp': datetime.now().isoformat(),
         'room_id': room_id,
@@ -570,6 +601,7 @@ def process_battle(room_id, round_number):
         room['battle_history'] = []
     room['battle_history'].append(battle_result)
     
+    print(f"DEBUG: Sending battle result with scores: {battle_result['scores']}")
     socketio.emit('battle_result', battle_result, room=room_id)
     
     for player_id, cards in room['player_cards'].items():
@@ -600,6 +632,7 @@ def process_battle(room_id, round_number):
             'room_id': room_id
         }
         
+        print(f"DEBUG: Game ended with final scores: {game_end_data['final_scores']}")
         socketio.emit('game_finished', game_end_data, room=room_id)
         room['status'] = 'finished'
         
@@ -641,17 +674,31 @@ def handle_rematch(data):
     
     room = rooms[room_id]
     
+    # 現在のプレイヤーリストを取得
+    players = room.get('players', [])
+    
+    # スコアを確実にリセット
+    reset_scores = {}
+    for player_id in players:
+        reset_scores[player_id] = 0
+    
+    print(f"DEBUG: Rematch - resetting scores for players: {players}")
+    print(f"DEBUG: Reset scores: {reset_scores}")
+    
     room.update({
         'status': 'battle_ready',
         'current_round': 1,
-        'scores': {pid: 0 for pid in room['players']},
+        'scores': reset_scores,  # 確実にリセット
         'current_selections': {},
         'battle_history': []
     })
     
-    for player_id, cards in room['player_cards'].items():
+    # カードの使用状態もリセット
+    for player_id, cards in room.get('player_cards', {}).items():
         for card in cards:
             card['used'] = False
+    
+    print(f"DEBUG: Rematch started with reset scores: {room['scores']}")
     
     socketio.emit('rematch_started', {
         'message': 'Rematch started! Round 1 begins.',
