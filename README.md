@@ -56,30 +56,44 @@ photo_battle/
 ### 必要な環境
 - Python 3.8+
 - pip
+- Git
 
 ### インストール
 
-1. **依存関係のインストール**
+1. **リポジトリのクローン**
 ```bash
-pip install flask flask-socketio flask-cors opencv-python pillow numpy
+git clone https://github.com/hack-u-muds/photobattle
+```
+```bash
+cd photo_battle
 ```
 
-2. **ファイルの配置**
-提供されたファイルをプロジェクトフォルダに配置してください。
+2. **仮想環境の作成とアクティベート**
+```bash
+python -m venv .venv
+```
+# Windowsの場合
+```bash
+.\.venv\Scripts\activate
+```
+# macOS/Linuxの場合
+```bash
+source .venv/bin/activate
+```
+
+3. **依存関係のインストール**
+```bash
+pip install -r requirements.txt
+```
 
 ### 起動方法
-
-#### オプション1: 統合サーバー（推奨）
+このアプリケーションは、メインサーバーとカード生成APIサーバーの2つの部分で構成されています。それぞれを別のターミナルで起動する必要があります。
+#### 1: 画像生成APIサーバーの起動(ターミナル１)
 ```bash
-python app.py
+python api_interface.py
 ```
-
-#### オプション2: API分離モード
+#### 2: メインサーバーの起動 (ターミナル2)
 ```bash
-# ターミナル1: APIサーバー
-python api_server.py
-
-# ターミナル2: メインサーバー
 python app.py
 ```
 
@@ -162,9 +176,6 @@ python app.py
 
 このプロジェクトはMITライセンスの下で公開されています。
 
-## 👥 貢献
-
-プルリクエストやイシューを歓迎します！
 
 ---
 
